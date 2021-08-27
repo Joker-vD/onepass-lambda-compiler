@@ -25,6 +25,8 @@ def lam2str(term, level=0):
             result = f'({result})'
         return result
 
+    raise Exception(f'not a lambda term: {term}')
+
 
 def lam(param, body):
     return ('LAM', param, body)
@@ -45,9 +47,16 @@ class Translator:
 
 typedef int Value;
 
+#define LOOKUP(v) v
+#define MAKE_ENV(how) 0
+''')
+
+        self.append(f'// {lam2str(term)}')
+
+        self.append('''
 Value body(void) {''')
 
-        self.append(self.translate_term(term))
+        self.append(f'return {self.translate_term(term)};')
 
         self.append(r'''}
 
@@ -62,11 +71,57 @@ int main(int argc, char **argv) {
 
         return '\n'.join(self.buffer)
 
+    # Returns a name of a C variable that has inside it the calculated value of the term
     def translate_term(self, term):
-        return '\treturn 0;'
+        if isinstance(term, str):
+            return self.translate_var(term)
+
+        kind, car, cdr = term
+        if kind == 'LAM':
+            return self.translate_lam(term)
+
+        if kind == 'APP':
+            return self.translate_app(term)
+
+        raise Exception(f'not a lambda term: {term}')
+
+    def translate_var(self, var):
+        return f'LOOKUP({var})'
+
+    def translate_lam(self, term):
+        _, param, body = term
+
+        # Right, here things get tricky. We need to a) generate the C function *at the top-level of the file*,
+        # b) generate Value with proper funptr and environment *at the current place*. And that current place
+        # will generally be inside one of the other top-level functions being generated up the callstack.
+
+        routine_name = self.next_lambda()
+
+        self.append(f'// generate {routine_name} with bound {param}')
+        value = self.translate_term(body)
+        self.append(f'// ended generating {routine_name}')
+
+        self.append('Value tmp;')
+        self.append(f'tmp.fun = {routine_name};')
+        self.append(f'tmp.env = MAKE_ENV(HOW);')
+
+        return 'tmp'
+
+    def translate_app(self, term):
+        _, fun, arg = term
+
+        self.append('Value tmp;')
+        self.append(f'tmp = fun_value.fun(fun_value.env, arg);')
+
+        return 'tmp'
 
     def append(self, line):
         self.buffer.append(line)
+
+    def next_lambda(self):
+        counter = self.counter
+        self.counter += 1
+        return f'lambda_{counter}'
 
 def translate(term):
     # Does anybody know the "proper" way to define such helper classes? You can't really call
@@ -88,10 +143,14 @@ def compile_and_run(c_filename):
         c_filename,
         f'/link /out:{exe_filename}'
     ])
-    subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    p = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
     print('Running:')
-    subprocess.run([os.path.join('.', exe_filename)])
+    try:
+        subprocess.run([os.path.join('.', exe_filename)])
+    except Exception as e:
+        print(f'Failed: {e}')
+        return
 
     os.remove(obj_filename)
     os.remove(exe_filename)
