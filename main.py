@@ -40,6 +40,7 @@ class Translator:
     def __init__(self):
         self.counter = 0
         self.buffer = []
+        self.indentation = ''
 
     def translate(self, term):
         self.append(r'''#include <stdio.h>
@@ -64,12 +65,13 @@ struct Value {
         body_value, body_stmts = self.translate_term(term)
 
         self.append('\nValue body(void) {')
-
+        self.indent()
         self.extend(body_stmts)
         self.append(f'return {body_value};')
+        self.dedent()
+        self.append('}')
 
-        self.append(r'''}
-
+        self.append(r'''
 void show(Value v) {
     printf("fun ");
 
@@ -106,7 +108,7 @@ int main(int argc, char **argv) {
     def translate_var(self, var):
         value = self.next_temp()
         return value, [
-            f'{value} = LOOKUP({var})'
+            f'Value {value} = LOOKUP({var});'
         ]
 
     def translate_lam(self, term):
@@ -123,8 +125,10 @@ int main(int argc, char **argv) {
         self.append(f'// ended generating {routine_name}')
 
         self.append(f'Value {routine_name}(Value env, Value arg) {{')
+        self.indent()
         self.extend(body_stmts)
         self.append(f'return {body_value};')
+        self.dedent()
         self.append('}')
 
         value = self.next_temp()
@@ -142,14 +146,21 @@ int main(int argc, char **argv) {
         value = self.next_temp()
 
         return value, fun_stmts + arg_stmts + [
-            f'Value {value} = {value} = {fun_value}.fun({fun_value}.env, {arg_value});'
+            f'Value {value} = {fun_value}.fun({fun_value}.env, {arg_value});'
         ]
 
     def append(self, line):
-        self.buffer.append(line)
+        self.buffer.append(f'{self.indentation}{line}')
 
     def extend(self, lines):
-        self.buffer.extend(lines)
+        for line in lines:
+            self.append(line)
+
+    def indent(self):
+        self.indentation += '\t'
+
+    def dedent(self):
+        self.indentation = self.indentation[:-1]
 
     def next_lambda(self):
         counter = self.counter
