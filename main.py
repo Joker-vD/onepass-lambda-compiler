@@ -41,8 +41,12 @@ class Translator:
         self.counter = 0
         self.buffer = []
         self.indentation = ''
+
         self.env = {}
-        self.env_undo = []
+        self.env_stack = []
+
+        self.captures = {}
+        self.captures_stack = []
 
     def translate(self, term):
         self.append(r'''#include <stdio.h>
@@ -58,8 +62,8 @@ struct Value {
     Value* env;
 };
 
-#define LOOKUP(v) v
-#define MAKE_ENV(how) 0
+static Value* tmpenv;
+
 ''')
 
         self.append(f'// {lam2str(term)}')
@@ -108,11 +112,16 @@ int main(int argc, char **argv) {
         raise Exception(f'not a lambda term: {term}')
 
     def translate_var(self, var):
-        value = self.next_temp()
+        return self.lookup_var(var), []
 
-        return value, [
-            f'Value {value} = {self.env[var]};'
-        ]
+    def lookup_var(self, var):
+        if var in self.env:
+            return self.env[var]
+
+        closure_offset = len(self.captures)
+        self.env[var] = f'env[{closure_offset}]'
+        self.captures[closure_offset] = var
+        return self.env[var]
 
     def translate_lam(self, term):
         _, param, body = term
@@ -126,9 +135,9 @@ int main(int argc, char **argv) {
 
         self.enter_lambda(param, translated_param)
         body_value, body_stmts = self.translate_term(body)
-        self.leave_lambda()
+        body_captures = self.leave_lambda()
 
-        self.append(f'Value {routine_name}(Value env, Value {translated_param}) {{')
+        self.append(f'Value {routine_name}(Value* env, Value {translated_param}) {{')
         self.indent()
         self.extend(body_stmts)
         self.append(f'return {body_value};')
@@ -137,8 +146,18 @@ int main(int argc, char **argv) {
 
         value = self.next_temp()
 
+        translated_captures = [self.lookup_var(body_captures[i]) for i in range(0, len(body_captures))]
+
+        if translated_captures:
+            env = ', '.join([
+                f'(tmpenv = malloc({len(translated_captures)} * sizeof(Value))',
+                *translated_captures,
+                'tmpenv)'])
+        else:
+            env = 'NULL'
+
         return value, [
-            f'Value {value} = {{ .fun = {routine_name}, .env = MAKE_ENV(HOW) }};'
+            f'Value {value} = {{ .fun = {routine_name}, .env = {env} }};'
         ]
 
     def translate_app(self, term):
@@ -177,21 +196,18 @@ int main(int argc, char **argv) {
         return f'tmp_{counter}'
 
     def enter_lambda(self, param, translated_param):
-        if param in self.env:
-            old_value = self.env[param]
-        else:
-            old_value = None
+        self.env_stack.append(self.env)
+        self.env = {param: translated_param}
 
-        self.env[param] = translated_param
-        self.env_undo.append((param, old_value))
+        self.captures_stack.append(self.captures)
+        self.captures = {}
 
     def leave_lambda(self):
-        param, old_value = self.env_undo.pop()
+        self.env = self.env_stack.pop()
 
-        if old_value is None:
-            del self.env[param]
-        else:
-            self.env[param] = old_value
+        body_captures = self.captures
+        self.captures = self.captures_stack.pop()
+        return body_captures
 
 def translate(term):
     # Does anybody know the "proper" way to define such helper classes? You can't really call

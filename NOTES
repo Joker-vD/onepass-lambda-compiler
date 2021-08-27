@@ -83,3 +83,5 @@ So the full code looks something like this:
     }
 
 So if you read from bottom to top, `lambda_0` puts `arg_z` at `env[0]` for `lambda_1`, then `lambda_1` puts `env[0]` from *its* `env` at `env[1]` for `lambda_2`, so when `lambda_2` accesses `env[1]`, it actually accesses the value of `arg_z` from `lambda_0`, as intended. Whew!
+
+Notice how we *don't* pre-calculate the free variables: we instead record and assign them closure slots on the fly.
