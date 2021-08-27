@@ -258,6 +258,8 @@ def main():
         lam('z', lam('y', lam('x', app(app('x', 'y'), 'z')))),
         app(lam('z', lam('y', lam('x', app(app('x', 'y'), 'z')))), lam('t', app(app('t', 't'), 't'))),
         app(app(lam('z', lam('y', lam('x', app('z', app('y', 'x'))))), lam('t', app('t', app('t', 't')))), lam('t', 't')),
+        lam('x', 'y'),
+        lam('x', lam('y', 'z')),
     ]):
         do_work(term, i)
 
