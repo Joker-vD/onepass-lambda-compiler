@@ -44,3 +44,42 @@ If you look at 3.c (at this commit right now), you'l see that nested lambdas act
     }
 
 Outermost lambda `λz. ...` is `lambda_0`, and it's value-closure is being filled in at the very end.
+
+### Capturing variables
+
+It's actually surprisingly simple: during the translation of a nested lambda's body, whenever a variable is accessed that is *not* this nested lambda's parameter, record that it should be translated as `env[CAPTURED_VARIABLES_COUNTER]`, and increment the `CAPTURED_VARIABLES_COUNTER`, and re-resolve it. After the body is translated, restore the outer lambda's list of captured variables and resolve every variable from the nested lambda's list.
+
+Probably a picture would be better:
+
+    λz. λy. λx. x y z
+    ^   ^   ^   -----
+    |   |   |
+    |   |   |-- lambda_2
+    |   |-- lambda_1
+    |-- lambda_0
+
+Let's translate the body of `lambda_2`: we start with the empty list of captured variables `[]`, translate `x` as `arg_x`, then `y` as `env[0]`, and `z` produces `env[1]`, plus after it's done, we have recorded the list `[y, z]`.
+
+Now we're translating the body `lambda_1`: we start with the empty list of captured variables `[]`, and re-resolve variables from the list `[y, z]`. translating `y` produces `arg_y`, and translating `z` produces `env[0]`: yes, `[0]`. So the resulting environment is `{arg_y, env[0]}`, and the list of captured variables is `[z]`.
+
+Now we're translating the body `lambda_0`: we start with the empty list of captured variables `[]`, and re-resolve variables from the list `[z]`. Translating `z` produces `arg_z`. So the resulting environment is `{arg_z}`, and the list of captured variables is `[]`.
+
+So the full code looks something like this:
+
+    Value lambda_2(Value* env, Value arg_x) {
+        Value tmp_xy = arg_x.fun(arg_x.env, env[0]);
+        Value tmp_xyz = tmp_xy.fun(tmp_xy.env, env[1]);
+        return tmp_xyz;
+    }
+
+    Value lambda_1(Value* env, Value arg_y) {
+        Value result = { .fun = lambda_2, env = {arg_y, env[0]} };
+        return result;
+    }
+
+    Value lambda_0(Value* env, Value arg_z) {
+        Value result = { .fun = lambda_1, env = {arg_z} };
+        return result;
+    }
+
+So if you read from bottom to top, `lambda_0` puts `arg_z` at `env[0]` for `lambda_1`, then `lambda_1` puts `env[0]` from *its* `env` at `env[1]` for `lambda_2`, so when `lambda_2` accesses `env[1]`, it actually accesses the value of `arg_z` from `lambda_0`, as intended. Whew!
