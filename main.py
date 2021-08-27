@@ -34,8 +34,23 @@ def app(fun, arg):
     return ('APP', fun, arg)
 
 
+# Gonna need some context
+class Translator:
+    def __init__(self):
+        self.counter = 0
+
+    def translate(self, term):
+        return 'Magic!'
+
+def translate(term):
+    # Does anybody know the "proper" way to define such helper classes? You can't really call
+    # translate() second time with some other term, it's really just a one-shot context
+    return Translator().translate(term)
+
 def do_work(term, ctx):
-    print(f'{ctx}: {lam2str(term)}')
+    print(ctx)
+    print(lam2str(term))
+    print(translate(term))
 
     print()
 
