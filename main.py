@@ -45,7 +45,14 @@ class Translator:
         self.append(r'''#include <stdio.h>
 #include <stdlib.h>
 
-typedef int Value;
+typedef struct Value Value;
+
+typedef Value (*Lambda)(Value* env, Value arg);
+
+struct Value {
+    Lambda fun;
+    Value* env;
+};
 
 #define LOOKUP(v) v
 #define MAKE_ENV(how) 0
