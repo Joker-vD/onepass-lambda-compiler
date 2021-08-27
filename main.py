@@ -44,6 +44,7 @@ class Translator:
     def translate(self, term):
         self.append(r'''#include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 
 typedef struct Value Value;
 
@@ -70,7 +71,14 @@ struct Value {
         self.append(r'''}
 
 void show(Value v) {
-    printf("%d\n", v);
+    printf("fun ");
+
+    unsigned char *funptr = (unsigned char *)&v.fun;
+    for (size_t i = 0; i < sizeof(Lambda); i++) {
+        printf("%02x", funptr[i]);
+    }
+
+    printf(" with env %p\n", v.env);
 }
 
 int main(int argc, char **argv) {
