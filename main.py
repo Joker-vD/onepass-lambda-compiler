@@ -121,6 +121,7 @@ int main(int argc, char **argv) {
 
         self.append(f'Value {routine_name}(Value env, Value arg) {{')
         self.extend(body_stmts)
+        self.append(f'return {body_value};')
         self.append('}')
 
         tmp_name = f'tmp_{routine_name}'
