@@ -104,7 +104,10 @@ int main(int argc, char **argv) {
         raise Exception(f'not a lambda term: {term}')
 
     def translate_var(self, var):
-        return f'LOOKUP({var})', []
+        value = self.next_temp()
+        return value, [
+            f'{value} = LOOKUP({var})'
+        ]
 
     def translate_lam(self, term):
         _, param, body = term
@@ -124,12 +127,10 @@ int main(int argc, char **argv) {
         self.append(f'return {body_value};')
         self.append('}')
 
-        tmp_name = f'tmp_{routine_name}'
+        value = self.next_temp()
 
-        return tmp_name, [
-            f'Value {tmp_name};',
-            f'{tmp_name}.fun = {routine_name};',
-            f'{tmp_name}.env = MAKE_ENV(HOW);'
+        return value, [
+            f'Value {value} = {{ .fun = {routine_name}, .env = MAKE_ENV(HOW) }};'
         ]
 
     def translate_app(self, term):
@@ -138,9 +139,10 @@ int main(int argc, char **argv) {
         fun_value, fun_stmts = self.translate_term(fun)
         arg_value, arg_stmts = self.translate_term(arg)
 
-        return 'tmp_app', fun_stmts + arg_stmts + [
-            'Value tmp_app;',
-            f'tmp_app = {fun_value}.fun({fun_value}.env, {arg_value});'
+        value = self.next_temp()
+
+        return value, fun_stmts + arg_stmts + [
+            f'Value {value} = {value} = {fun_value}.fun({fun_value}.env, {arg_value});'
         ]
 
     def append(self, line):
@@ -153,6 +155,11 @@ int main(int argc, char **argv) {
         counter = self.counter
         self.counter += 1
         return f'lambda_{counter}'
+
+    def next_temp(self):
+        counter = self.counter
+        self.counter += 1
+        return f'tmp_{counter}'
 
 def translate(term):
     # Does anybody know the "proper" way to define such helper classes? You can't really call
