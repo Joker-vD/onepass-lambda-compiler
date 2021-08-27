@@ -60,10 +60,12 @@ struct Value {
 
         self.append(f'// {lam2str(term)}')
 
-        self.append('''
-Value body(void) {''')
+        body_value, body_stmts = self.translate_term(term)
 
-        self.append(f'return {self.translate_term(term)};')
+        self.append('\nValue body(void) {')
+
+        self.extend(body_stmts)
+        self.append(f'return {body_value};')
 
         self.append(r'''}
 
@@ -78,7 +80,8 @@ int main(int argc, char **argv) {
 
         return '\n'.join(self.buffer)
 
-    # Returns a name of a C variable that has inside it the calculated value of the term
+    # Returns a name of a C variable that has inside it the calculated value of the term, and the list of
+    # C statements that fill that variable
     def translate_term(self, term):
         if isinstance(term, str):
             return self.translate_var(term)
@@ -93,7 +96,7 @@ int main(int argc, char **argv) {
         raise Exception(f'not a lambda term: {term}')
 
     def translate_var(self, var):
-        return f'LOOKUP({var})'
+        return f'LOOKUP({var})', []
 
     def translate_lam(self, term):
         _, param, body = term
@@ -105,14 +108,16 @@ int main(int argc, char **argv) {
         routine_name = self.next_lambda()
 
         self.append(f'// generate {routine_name} with bound {param}')
-        value = self.translate_term(body)
+        body_value, body_stmts = self.translate_term(body)
         self.append(f'// ended generating {routine_name}')
 
-        self.append('Value tmp;')
-        self.append(f'tmp.fun = {routine_name};')
-        self.append(f'tmp.env = MAKE_ENV(HOW);')
+        self.append(f'Value {routine_name}(Value env, Value arg) {{')
+        self.extend(body_stmts)
+        self.append('}')
 
-        return 'tmp'
+        result = ['Value tmp;', f'tmp.fun = {routine_name};', f'tmp.env = MAKE_ENV(HOW);']
+
+        return 'tmp', result
 
     def translate_app(self, term):
         _, fun, arg = term
@@ -120,10 +125,13 @@ int main(int argc, char **argv) {
         self.append('Value tmp;')
         self.append(f'tmp = fun_value.fun(fun_value.env, arg);')
 
-        return 'tmp'
+        return 'tmp', []
 
     def append(self, line):
         self.buffer.append(line)
+
+    def extend(self, lines):
+        self.buffer.extend(lines)
 
     def next_lambda(self):
         counter = self.counter
