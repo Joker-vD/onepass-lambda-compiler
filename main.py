@@ -68,14 +68,11 @@ static Value* tmpenv;
 
         self.append(f'// {lam2str(term)}')
 
-        body_value, body_stmts = self.translate_term(term)
+        self.enter_lambda_body('', '_')
+        top_level_captures = self.translate_lambda_body(term, 'body', '_')
 
-        self.append('\nValue body(void) {')
-        self.indent()
-        self.extend(body_stmts)
-        self.append(f'return {body_value};')
-        self.dedent()
-        self.append('}')
+        if top_level_captures:
+            raise Exception(f'unbound variables: {list(map(str, top_level_captures.values()))}')
 
         self.append(r'''
 void show(Value v) {
@@ -89,8 +86,14 @@ void show(Value v) {
     printf(" with env %p\n", v.env);
 }
 
+Value dummy_lambda(Value* env, Value arg) {
+    fprintf(stderr, "%s\n", "dummy lambda invoked");
+    exit(1);
+}
+
 int main(int argc, char **argv) {
-    show(body());
+    Value dummy = { .fun = dummy_lambda, .env = NULL };
+    show(body(NULL, dummy));
 }
 ''')
 
@@ -133,9 +136,14 @@ int main(int argc, char **argv) {
         routine_name = self.next_lambda()
         translated_param = f'arg_{param}'
 
-        self.enter_lambda(param, translated_param)
+        self.enter_lambda_body(param, translated_param)
+
+        body_captures = self.translate_lambda_body(body, routine_name, translated_param)
+
+        return self.build_lambda_value(routine_name, body_captures)
+
+    def translate_lambda_body(self, body, routine_name, translated_param):
         body_value, body_stmts = self.translate_term(body)
-        body_captures = self.leave_lambda()
 
         self.append(f'Value {routine_name}(Value* env, Value {translated_param}) {{')
         self.indent()
@@ -144,6 +152,9 @@ int main(int argc, char **argv) {
         self.dedent()
         self.append('}')
 
+        return self.leave_lambda_body()
+
+    def build_lambda_value(self, routine_name, body_captures):
         value = self.next_temp()
 
         translated_captures = [self.lookup_var(body_captures[i]) for i in range(0, len(body_captures))]
@@ -195,14 +206,14 @@ int main(int argc, char **argv) {
         self.counter += 1
         return f'tmp_{counter}'
 
-    def enter_lambda(self, param, translated_param):
+    def enter_lambda_body(self, param, translated_param):
         self.env_stack.append(self.env)
         self.env = {param: translated_param}
 
         self.captures_stack.append(self.captures)
         self.captures = {}
 
-    def leave_lambda(self):
+    def leave_lambda_body(self):
         self.env = self.env_stack.pop()
 
         body_captures = self.captures
@@ -244,7 +255,14 @@ def compile_and_run(c_filename):
 def do_work(term, ctx):
     print(ctx)
     print(lam2str(term))
-    put_file_contents(f'{ctx}.c', translate(term))
+
+    try:
+        translated = translate(term)
+    except Exception as e:
+        print(f'Failed: {e}')
+        return
+
+    put_file_contents(f'{ctx}.c', translated)
     compile_and_run(f'{ctx}.c')
 
     print()
