@@ -48,6 +48,8 @@ class Translator:
         self.captures = {}
         self.captures_stack = []
 
+        self.routine_names = []
+
     def translate(self, term):
         self.append(r'''#include <stdio.h>
 #include <stdlib.h>
@@ -63,10 +65,10 @@ struct Value {
 };
 
 static Value* tmpenv;
-
 ''')
 
         self.append(f'// {lam2str(term)}')
+        self.append('')
 
         self.enter_lambda_body('', '_')
         top_level_captures = self.translate_lambda_body(term, 'body', '_')
@@ -74,18 +76,9 @@ static Value* tmpenv;
         if top_level_captures:
             raise Exception(f'unbound variables: {list(map(str, top_level_captures.values()))}')
 
+        self.generate_show()
+
         self.append(r'''
-void show(Value v) {
-    printf("fun ");
-
-    unsigned char *funptr = (unsigned char *)&v.fun;
-    for (size_t i = 0; i < sizeof(Lambda); i++) {
-        printf("%02x", funptr[i]);
-    }
-
-    printf(" with env %p\n", v.env);
-}
-
 Value dummy_lambda(Value* env, Value arg) {
     fprintf(stderr, "%s\n", "dummy lambda invoked");
     exit(1);
@@ -98,6 +91,30 @@ int main(int argc, char **argv) {
 ''')
 
         return '\n'.join(self.buffer)
+
+    def generate_show(self):
+        self.append('void show(Value v) {')
+        self.indent()
+
+        for routine_name in self.routine_names:
+            # Nope, you can't switch on function pointers: they are not constants becase linkers is a thing
+            self.append(f'if (v.fun == {routine_name}) {{')
+            self.indent()
+            self.append(f'printf("{routine_name} with env at %p\\n", v.env);')
+            self.append('return;')
+            self.dedent()
+            self.append('}')
+
+        self.append(r'''fprintf(stderr, "unknown function pointer: ");
+    unsigned char *funptr = (unsigned char *)&v.fun;
+    for (size_t i = 0; i < sizeof(Lambda); i++) {
+        printf("%02x", funptr[i]);
+    }
+    fprintf(stderr, "\n");
+    exit(1);''')
+
+        self.append('}')
+        self.dedent()
 
     # Returns a name of a C variable that has inside it the calculated value of the term, and the list of
     # C statements that fill that variable
@@ -133,7 +150,7 @@ int main(int argc, char **argv) {
         # b) generate Value with proper funptr and environment *at the current place*. And that current place
         # will generally be inside one of the other top-level functions being generated up the callstack.
 
-        routine_name = self.next_lambda()
+        routine_name = self.next_routine()
         translated_param = f'arg_{param}'
 
         self.enter_lambda_body(param, translated_param)
@@ -196,10 +213,12 @@ int main(int argc, char **argv) {
     def dedent(self):
         self.indentation = self.indentation[:-1]
 
-    def next_lambda(self):
+    def next_routine(self):
         counter = self.counter
         self.counter += 1
-        return f'lambda_{counter}'
+        result = f'lambda_{counter}'
+        self.routine_names.append(result)
+        return result
 
     def next_temp(self):
         counter = self.counter
