@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
-from utils import dummy
-
+from utils import put_file_contents
 
 # no idea who invented this trick first, I've seen it in the code accompanying B. C. Pierce's TAPL
 # basically, you kinda track what priority level the expression you're about to print has, and put parens
@@ -44,7 +43,7 @@ class Translator:
         self.append(r'''#include <stdio.h>
 #include <stdlib.h>
 
-typedef Value int;
+typedef int Value;
 
 Value body(void) {''')
 
@@ -58,7 +57,8 @@ void show(Value v) {
 
 int main(int argc, char **argv) {
     show(body());
-}''')
+}
+''')
 
         return '\n'.join(self.buffer)
 
@@ -73,10 +73,34 @@ def translate(term):
     # translate() second time with some other term, it's really just a one-shot context
     return Translator().translate(term)
 
+def compile_and_run(c_filename):
+    # Technically, I could try to use $CC, but do *you* have it set in your environment? If
+    # yes, please let everyone on the Internet know. Anyway, just put in here whatever invocation
+    # works on your machine
+    import os, subprocess
+
+    basename, _ = os.path.splitext(c_filename)
+    obj_filename = f'{basename}.obj'
+    exe_filename = f'{basename}.exe'
+
+    cmd = ' '.join([
+        r'"D:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" && cl.exe /O2',
+        c_filename,
+        f'/link /out:{exe_filename}'
+    ])
+    subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    print('Running:')
+    subprocess.run([os.path.join('.', exe_filename)])
+
+    os.remove(obj_filename)
+    os.remove(exe_filename)
+
 def do_work(term, ctx):
     print(ctx)
     print(lam2str(term))
-    print(translate(term))
+    put_file_contents(f'{ctx}.c', translate(term))
+    compile_and_run(f'{ctx}.c')
 
     print()
 
