@@ -41,6 +41,8 @@ class Translator:
         self.counter = 0
         self.buffer = []
         self.indentation = ''
+        self.env = {}
+        self.env_undo = []
 
     def translate(self, term):
         self.append(r'''#include <stdio.h>
@@ -107,8 +109,9 @@ int main(int argc, char **argv) {
 
     def translate_var(self, var):
         value = self.next_temp()
+
         return value, [
-            f'Value {value} = LOOKUP({var});'
+            f'Value {value} = {self.env[var]};'
         ]
 
     def translate_lam(self, term):
@@ -119,12 +122,13 @@ int main(int argc, char **argv) {
         # will generally be inside one of the other top-level functions being generated up the callstack.
 
         routine_name = self.next_lambda()
+        translated_param = f'arg_{param}'
 
-        self.append(f'// generate {routine_name} with bound {param}')
+        self.enter_lambda(param, translated_param)
         body_value, body_stmts = self.translate_term(body)
-        self.append(f'// ended generating {routine_name}')
+        self.leave_lambda()
 
-        self.append(f'Value {routine_name}(Value env, Value arg) {{')
+        self.append(f'Value {routine_name}(Value env, Value {translated_param}) {{')
         self.indent()
         self.extend(body_stmts)
         self.append(f'return {body_value};')
@@ -171,6 +175,23 @@ int main(int argc, char **argv) {
         counter = self.counter
         self.counter += 1
         return f'tmp_{counter}'
+
+    def enter_lambda(self, param, translated_param):
+        if param in self.env:
+            old_value = self.env[param]
+        else:
+            old_value = None
+
+        self.env[param] = translated_param
+        self.env_undo.append((param, old_value))
+
+    def leave_lambda(self):
+        param, old_value = self.env_undo.pop()
+
+        if old_value is None:
+            del self.env[param]
+        else:
+            self.env[param] = old_value
 
 def translate(term):
     # Does anybody know the "proper" way to define such helper classes? You can't really call
