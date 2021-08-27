@@ -135,10 +135,13 @@ int main(int argc, char **argv) {
     def translate_app(self, term):
         _, fun, arg = term
 
-        self.append('Value tmp_app;')
-        self.append(f'tmp_app = fun_value.fun(fun_value.env, arg);')
+        fun_value, fun_stmts = self.translate_term(fun)
+        arg_value, arg_stmts = self.translate_term(arg)
 
-        return 'tmp_app', []
+        return 'tmp_app', fun_stmts + arg_stmts + [
+            'Value tmp_app;',
+            f'tmp_app = {fun_value}.fun({fun_value}.env, {arg_value});'
+        ]
 
     def append(self, line):
         self.buffer.append(line)
