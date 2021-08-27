@@ -115,17 +115,21 @@ int main(int argc, char **argv) {
         self.extend(body_stmts)
         self.append('}')
 
-        result = ['Value tmp;', f'tmp.fun = {routine_name};', f'tmp.env = MAKE_ENV(HOW);']
+        tmp_name = f'tmp_{routine_name}'
 
-        return 'tmp', result
+        return tmp_name, [
+            f'Value {tmp_name};',
+            f'{tmp_name}.fun = {routine_name};',
+            f'{tmp_name}.env = MAKE_ENV(HOW);'
+        ]
 
     def translate_app(self, term):
         _, fun, arg = term
 
-        self.append('Value tmp;')
-        self.append(f'tmp = fun_value.fun(fun_value.env, arg);')
+        self.append('Value tmp_app;')
+        self.append(f'tmp_app = fun_value.fun(fun_value.env, arg);')
 
-        return 'tmp', []
+        return 'tmp_app', []
 
     def append(self, line):
         self.buffer.append(line)
