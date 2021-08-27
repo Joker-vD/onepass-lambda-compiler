@@ -1,0 +1,46 @@
+### Value representation
+
+In λ-calculus the only values are functions. We will represent them as
+fat function pointers:
+
+    typedef struct Value Value;
+
+    typedef Value (*Lambda)(Value* env, Value arg);
+
+    struct Value {
+        Lambda fun;
+        Value* env;
+    };
+
+Technically, the typedef for `Lambda` could be inlinded: we don't need typecasts at the callsites because all generated C functions will have exactly this type. But if we tried to support functions with several parameters we'd have to cast them to function types with correct number of arguments: otherwise, it'd be UB.
+
+Notice that `Lambda` only get the environment (the array with the values of the captured variables), not the whole closure. No cheap `letrec`, but helps with the text ordering.
+
+### Lambda ordering
+
+If you look at 3.c (at this commit right now), you'l see that nested lambdas actually already are being generrated in mostly correct order:
+
+    // λz. λy. λx. x y z
+
+    Value body(void) {
+    // generate lambda_0 with bound z
+    // generate lambda_1 with bound y
+    // generate lambda_2 with bound x
+    Value tmp;
+    tmp = fun_value.fun(fun_value.env, arg);
+    // ended generating lambda_2
+    Value tmp;
+    tmp.fun = lambda_2;
+    tmp.env = MAKE_ENV(HOW);
+    // ended generating lambda_1
+    Value tmp;
+    tmp.fun = lambda_1;
+    tmp.env = MAKE_ENV(HOW);
+    // ended generating lambda_0
+    Value tmp;
+    tmp.fun = lambda_0;
+    tmp.env = MAKE_ENV(HOW);
+    return tmp;
+    }
+
+Outermost lambda `λz. ...` is `lambda_0`, and it's value-closure is being filled in at the very end.
