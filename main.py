@@ -38,9 +38,35 @@ def app(fun, arg):
 class Translator:
     def __init__(self):
         self.counter = 0
+        self.buffer = []
 
     def translate(self, term):
-        return 'Magic!'
+        self.append(r'''#include <stdio.h>
+#include <stdlib.h>
+
+typedef Value int;
+
+Value body(void) {''')
+
+        self.append(self.translate_term(term))
+
+        self.append(r'''}
+
+void show(Value v) {
+    printf("%d\n", v);
+}
+
+int main(int argc, char **argv) {
+    show(body());
+}''')
+
+        return '\n'.join(self.buffer)
+
+    def translate_term(self, term):
+        return '\treturn 0;'
+
+    def append(self, line):
+        self.buffer.append(line)
 
 def translate(term):
     # Does anybody know the "proper" way to define such helper classes? You can't really call
