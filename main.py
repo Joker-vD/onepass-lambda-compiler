@@ -2,7 +2,7 @@
 
 from utils import put_file_contents
 
-# no idea who invented this trick first, I've seen it in the code accompanying B. C. Pierce's TAPL
+# No idea who invented this trick first, I've seen it in the code accompanying B. C. Pierce's TAPL;
 # basically, you kinda track what priority level the expression you're about to print has, and put parens
 # around it if it's low enough to need it. Here, level 0 is "either top or a body of a lambda", level 1 is
 # "lhs of the application", and level 2 is "rhs of an application". Variables never need parens, lambdas
@@ -65,11 +65,15 @@ struct Value {
 };
 
 static Value* tmpenv;
+static size_t heap_usage;
 ''')
 
         self.append(f'// {lam2str(term)}')
         self.append('')
 
+        # One way to translate top-level expression is to wrap it into a lambda with dummy parameter,
+        # and then do some specific meddling with the result. Here, we *don't* generate the closure,
+        # but instead check that no variables were captured.
         self.enter_lambda_body('', '_')
         top_level_captures = self.translate_lambda_body(term, 'body', '_')
 
@@ -78,15 +82,18 @@ static Value* tmpenv;
 
         self.generate_show()
 
+        # I don't quite know how to handle the top-level expression better. But it's possible, of course
         self.append(r'''
 Value dummy_lambda(Value* env, Value arg) {
     fprintf(stderr, "%s\n", "dummy lambda invoked");
     exit(1);
-}
+}''')
 
+        self.append(r'''
 int main(int argc, char **argv) {
     Value dummy = { .fun = dummy_lambda, .env = NULL };
     show(body(NULL, dummy));
+    printf("heap usage: %zu\n", heap_usage);
 }
 ''')
 
@@ -177,8 +184,10 @@ int main(int argc, char **argv) {
         translated_captures = [self.lookup_var(body_captures[i]) for i in range(0, len(body_captures))]
 
         if translated_captures:
+            mem_size = f'{len(translated_captures)} * sizeof(Value)'
             env = ', '.join([
-                f'(tmpenv = malloc({len(translated_captures)} * sizeof(Value))',
+                f'(tmpenv = malloc({mem_size})',
+                f'heap_usage += {mem_size}',
                 *translated_captures,
                 'tmpenv)'])
         else:
