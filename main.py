@@ -140,7 +140,9 @@ int main(int argc, char **argv) {
 
         kind, car, cdr = term
         if kind == 'APP':
-            pass
+            self.generate_show_meat(car, inv_captures)
+            self.append('printf(" ");')
+            self.generate_show_meat(cdr, inv_captures)
         elif kind == 'LAM':
             self.append(f'printf("λ%s. ", "{car}");')
             self.generate_show_meat(cdr, inv_captures)
@@ -214,7 +216,7 @@ int main(int argc, char **argv) {
             env = ', '.join([
                 f'(tmpenv = malloc({mem_size})',
                 f'heap_usage += {mem_size}',
-                *translated_captures,
+                *[f'tmpenv[{i}] = {c}' for i, c in enumerate(translated_captures)],
                 'tmpenv)'])
         else:
             env = 'NULL'
