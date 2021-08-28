@@ -375,6 +375,14 @@ def test_run():
     ]):
         do_work(term, i)
 
+class Parser:
+    def __init__(self):
+        self.result = None
+
+    def parse(self, chunk):
+        self.result = chunk
+        return 'DONE'
+
 class Interaction:
     def __init__(self):
         self.should_quit = False
@@ -393,7 +401,10 @@ class Interaction:
                 print(f'Failed: {e}', file=sys.stderr)
 
     def parse_cmd(self, s):
-        self.eval_and_print_term(s)
+        p = Parser()
+        while p.parse(s) != 'DONE':
+            s = input('. ')
+        self.eval_and_print_term(p.result)
 
     def eval_and_print_term(self, term):
         print(self.eval_term(term))
