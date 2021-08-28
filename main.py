@@ -380,6 +380,8 @@ class Interaction:
         self.should_quit = False
 
     def interact(self):
+        import sys
+
         while not self.should_quit:
             try:
                 s = input('> ')
@@ -387,14 +389,17 @@ class Interaction:
             except EOFError:
                 print('Goodbye!')
                 self.should_quit = True
+            except Exception as e:
+                print(f'Failed: {e}', file=sys.stderr)
 
     def parse_cmd(self, s):
-        try:
-            result = translate_compile_run(s, 'tmp', True)
-        except Exception as e:
-            print(f'Failed: {e}')
-        else:
-            print(result)
+        self.eval_and_print_term(s)
+
+    def eval_and_print_term(self, term):
+        print(self.eval_term(term))
+
+    def eval_term(self, term):
+        return translate_compile_run(term, 'tmp', True)
 
 def interactive_run():
     Interaction().interact()
