@@ -104,29 +104,14 @@ int main(int argc, char **argv) {
         self.indent()
 
         for term, routine_name, body_captures in self.show_data:
-            _, param, body = term
             inv_captures = {v: f'v.env[{k}]' for k, v in body_captures.items()}
 
             # Nope, you can't switch on function pointers: they are not constants becase linkers is a thing
             self.append(f'if (v.fun == {routine_name}) {{')
             self.indent()
             self.append(f'// {lam2str(term)} -- {inv_captures}')
-            self.append(f'printf("λ%s. ", "{param}");')
 
-            if isinstance(body, str):
-                if param == body:
-                    self.append(f'printf("%s", "{param}");')
-                else:
-                    # It's a captured variable, call show() recursively to print it
-                    self.append(f'show({inv_captures[body]});')
-
-            body_kind, body_car, body_cdr = body
-            if body_kind == 'APP':
-                pass
-            elif body_kind == 'LAM':
-                pass
-            else:
-                raise Exception(f'not a lambda term: {body}')
+            self.generate_show_meat(term, inv_captures)
 
             self.append('printf("\\n");')
             self.append('return;')
@@ -143,6 +128,24 @@ int main(int argc, char **argv) {
 
         self.append('}')
         self.dedent()
+
+    def generate_show_meat(self, term, inv_captures):
+        if isinstance(term, str):
+            if term in inv_captures:
+                # It's a captured variable, call show() recursively to print it
+                self.append(f'show({inv_captures[term]});')
+            else:
+                self.append(f'printf("%s", "{term}");')
+            return
+
+        kind, car, cdr = term
+        if kind == 'APP':
+            pass
+        elif kind == 'LAM':
+            self.append(f'printf("λ%s. ", "{car}");')
+            self.generate_show_meat(cdr, inv_captures)
+        else:
+            raise Exception(f'not a lambda term: {term}')
 
     # Returns a name of a C variable that has inside it the calculated value of the term, and the list of
     # C statements that fill that variable
