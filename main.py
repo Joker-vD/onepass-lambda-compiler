@@ -375,13 +375,110 @@ def test_run():
     ]):
         do_work(term, i)
 
-class Parser:
-    def __init__(self):
-        self.result = None
+class Tokenizer:
+    def __init__(self, s):
+        self.s = s
+        self.len = len(s)
+        self.prev_pos = 0
+        self.pos = 0
 
-    def parse(self, chunk):
-        self.result = chunk
-        return 'DONE'
+    def skip_ws(self):
+        while self.pos < self.len and self.s[self.pos] in '\t\r\x20\v\f':
+            self.pos += 1
+
+    def next(self, continue_line=True):
+        self.skip_ws()
+        self.prev_pos = self.pos
+
+        if self.pos == self.len:
+            if continue_line:
+                self.s = input('. ')
+                self.len = len(self.s)
+                self.prev_pos = 0
+                self.pos = 0
+                return self.next(False)
+            else:
+                return 'EOF'
+
+        curr = self.pos
+        look = self.s[curr]
+        if self.is_var_start(look):
+            curr += 1
+            while curr < self.len and self.is_var_cont(self.s[curr]):
+                curr += 1
+        else:
+            curr += 1
+        word = self.s[self.pos:curr]
+        self.pos = curr
+
+        return word
+
+    def is_var_start(self, ch):
+        return ch >= 'a' and ch <= 'z' or ch == '_'
+
+    def is_var_cont(self, ch):
+        return self.is_var_start(ch) or ch == "'" or ch >= '0' and ch <= '9'
+
+    def is_var(self, token):
+        return self.is_var_start(token[0])
+
+class Parser:
+    def __init__(self, init_chunk):
+        self.tokenizer = Tokenizer(init_chunk)
+        self.parens = 0
+
+    def parse(self):
+        term, token = self.parse_term()
+
+        if token != 'EOF':
+            raise Exception(f'Extraneous symbols at {self.tokenizer.prev_pos}')
+
+        return term
+
+    def parse_term(self):
+        token = self.next()
+        if token in 'λ\\':
+            return self.parse_lambda()
+        else:
+            return self.parse_app(token)
+
+    def parse_lambda(self):
+        token = self.next()
+        if not self.tokenizer.is_var(token):
+            raise Exception(f'Expected variable after start of lambda but found {token} at {self.tokenizer.prev_pos}')
+        param = token
+        token = self.next()
+        if token not in '.:':
+            raise Exception(f'Expected "." or ":" after lambda head but found {token} at {self.tokenizer.prev_pos}')
+        body, token = self.parse_term()
+        return ('LAM', param, body), token
+
+    def parse_app(self, token):
+        fun, token = self.parse_atomic(token)
+        result = fun
+
+        while self.tokenizer.is_var(token) or token == '(':
+            arg, token = self.parse_atomic(token)
+            result = ('APP', result, arg)
+
+        return result, token
+
+    def parse_atomic(self, token):
+        if token == '(':
+            self.parens += 1
+            result, token = self.parse_term()
+            if token != ')':
+                raise Exception(f'Expected ")" after parenthesized expression but found {token} at {self.tokenizer.prev_pos}')
+            self.parens -= 1
+            return result, self.next()
+
+        if self.tokenizer.is_var(token):
+            return token, self.next()
+
+        raise Exception(f'expected "(" or a variable but found {token} at {self.tokenizer.prev_pos}')
+
+    def next(self):
+        return self.tokenizer.next(self.parens != 0)
 
 class Interaction:
     def __init__(self):
@@ -401,12 +498,11 @@ class Interaction:
                 print(f'Failed: {e}', file=sys.stderr)
 
     def parse_cmd(self, s):
-        p = Parser()
-        while p.parse(s) != 'DONE':
-            s = input('. ')
-        self.eval_and_print_term(p.result)
+        p = Parser(s)
+        self.eval_and_print_term(p.parse())
 
     def eval_and_print_term(self, term):
+        print(lam2str(term))
         print(self.eval_term(term))
 
     def eval_term(self, term):
