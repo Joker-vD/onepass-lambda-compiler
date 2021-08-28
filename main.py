@@ -105,13 +105,29 @@ int main(int argc, char **argv) {
 
         for term, routine_name, body_captures in self.show_data:
             _, param, body = term
-            inv_captures = {v: k for k, v in body_captures.items()}
+            inv_captures = {v: f'v.env[{k}]' for k, v in body_captures.items()}
 
             # Nope, you can't switch on function pointers: they are not constants becase linkers is a thing
             self.append(f'if (v.fun == {routine_name}) {{')
             self.indent()
             self.append(f'// {lam2str(term)} -- {inv_captures}')
             self.append(f'printf("λ%s. ", "{param}");')
+
+            if isinstance(body, str):
+                if param == body:
+                    self.append(f'printf("%s", "{param}");')
+                else:
+                    # It's a captured variable, call show() recursively to print it
+                    self.append(f'show({inv_captures[body]});')
+
+            body_kind, body_car, body_cdr = body
+            if body_kind == 'APP':
+                pass
+            elif body_kind == 'LAM':
+                pass
+            else:
+                raise Exception(f'not a lambda term: {body}')
+
             self.append('printf("\\n");')
             self.append('return;')
             self.dedent()
