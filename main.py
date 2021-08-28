@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import os
+
 from utils import put_file_contents
 
 # No idea who invented this trick first, I've seen it in the code accompanying B. C. Pierce's TAPL;
@@ -94,7 +96,7 @@ int main(int argc, char **argv) {
     Value dummy = { .fun = dummy_lambda, .env = NULL };
     show(body(NULL, dummy), 0);
     printf("\n");
-    printf("heap usage: %zu\n", heap_usage);
+    fprintf(stderr, "heap usage: %zu\n", heap_usage);
 }
 ''')
 
@@ -299,7 +301,7 @@ def compile_and_run(c_filename):
     # Technically, I could try to use $CC, but do *you* have it set in your environment? If
     # yes, please let everyone on the Internet know. Anyway, just put in here whatever invocation
     # works on your machine
-    import os, subprocess
+    import subprocess
 
     basename, _ = os.path.splitext(c_filename)
     obj_filename = f'{basename}.obj'
@@ -312,30 +314,34 @@ def compile_and_run(c_filename):
     ])
     p = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-    print('Running:')
     try:
-        subprocess.run([os.path.join('.', exe_filename)])
-    except Exception as e:
-        print(f'Failed: {e}')
-        return
+        p = subprocess.run([os.path.join('.', exe_filename)], stdout=subprocess.PIPE)
+    finally:
+        os.remove(obj_filename)
+        os.remove(exe_filename)
 
-    os.remove(obj_filename)
-    #os.remove(exe_filename)
+    return p.stdout.decode()
+
+def translate_compile_run(term, ctx, keep_c_file):
+    translated = translate(term)
+    c_filename = f'{ctx}.c'
+    put_file_contents(c_filename, translated)
+    try:
+        return compile_and_run(c_filename)
+    finally:
+        if not keep_c_file:
+            os.remove(c_filename)
 
 def do_work(term, ctx):
     print(ctx)
     print(lam2str(term))
 
     try:
-        translated = translate(term)
+        result = translate_compile_run(term, ctx, True)
     except Exception as e:
         print(f'Failed: {e}')
-        return
-
-    put_file_contents(f'{ctx}.c', translated)
-    compile_and_run(f'{ctx}.c')
-
-    print()
+    else:
+        print(result)
 
 
 def const():
@@ -354,7 +360,7 @@ def church_four():
     return lam('s', lam('z', app('s', app('s', app('s', app('s', 'z'))))))
 
 
-def main():
+def test_run():
     for i, term in enumerate([
         lam('x', 'x'),
         app(lam('x', 'x'), lam('x', 'x')),
@@ -369,6 +375,33 @@ def main():
     ]):
         do_work(term, i)
 
+class Interaction:
+    def __init__(self):
+        self.should_quit = False
+
+    def interact(self):
+        while not self.should_quit:
+            try:
+                s = input('> ')
+                self.parse_cmd(s)
+            except EOFError:
+                print('Goodbye!')
+                self.should_quit = True
+
+    def parse_cmd(self, s):
+        try:
+            result = translate_compile_run(s, 'tmp', True)
+        except Exception as e:
+            print(f'Failed: {e}')
+        else:
+            print(result)
+
+def interactive_run():
+    Interaction().interact()
+
+def main():
+    #test_run()
+    interactive_run()
 
 if __name__ == '__main__':
     main()
