@@ -89,3 +89,9 @@ Notice how we *don't* pre-calculate the free variables: we instead record and as
 ### Printing closure values
 
 Generating code for printing the closure values as λ-terms with captured substituted in is similar in spirit to the `lam2str()` function. Interestingly enough, we don't need to α-convert anything because of the call-to-value semantics: the captured variables reference the closures which are, well, closed. For example, value `λx. x y z + {y: λx. x + {}, z: λk. k x + {x: λx. x + {}}` should be printed as `λx. x (λx. x) (λk. k (λx. x))`. It's somewhat confusing but still correct and unambiguous for a careful enough reader. Of course, we could also have just mangled names, e.g. uniformly turning `x` into `x@lambda_11`, or carefully tracking the bound variables and appending numbers or primes, but eh.
+
+### Parsing lambdas
+
+It's recursive descent, but with support for line continuations inside the lexer! Nothing special, although can be tricky to debug: I'm particularly prone to accidentally writing infinite loops in such parsers for some reason.
+
+Also, the exact grammar implemented does *not* support `\x. x \t. t` as an acceptable input equivalent to `\x. x (\t. t)`, but it can be done by changing `parse_atomic()` to expect lambda in addition to the left parenthesis and variables.
