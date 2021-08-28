@@ -320,7 +320,7 @@ def compile_and_run(c_filename):
         return
 
     os.remove(obj_filename)
-    os.remove(exe_filename)
+    #os.remove(exe_filename)
 
 def do_work(term, ctx):
     print(ctx)
@@ -338,6 +338,22 @@ def do_work(term, ctx):
     print()
 
 
+def const():
+    return lam('k', lam('_', 'k'))
+
+def church_succ():
+    return lam('n', lam('s', lam('z', app('s', app(app('n', 's'), 'z')))))
+
+def church_pred():
+    return lam('n', lam('s', lam('z', app(app(app('n', lam('g', lam('h', app('h', app('g', 's'))))), app(const(), 'z')), lam('t', 't')))))
+
+def church_zero():
+    return lam('s', lam('z', 'z'))
+
+def church_four():
+    return lam('s', lam('z', app('s', app('s', app('s', app('s', 'z'))))))
+
+
 def main():
     for i, term in enumerate([
         lam('x', 'x'),
@@ -348,6 +364,8 @@ def main():
         app(app(lam('z', lam('y', lam('x', app('z', app('y', 'x'))))), lam('t', app('t', app('t', 't')))), lam('t', 't')),
         lam('x', 'y'),
         lam('x', lam('y', 'z')),
+        app(church_pred(), church_four()),
+        app(app(app(church_pred(), church_four()), church_succ()), church_zero()),
     ]):
         do_work(term, i)
 
