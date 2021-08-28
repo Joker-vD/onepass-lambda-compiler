@@ -92,7 +92,8 @@ Value dummy_lambda(Value* env, Value arg) {
         self.append(r'''
 int main(int argc, char **argv) {
     Value dummy = { .fun = dummy_lambda, .env = NULL };
-    show(body(NULL, dummy));
+    show(body(NULL, dummy), 0);
+    printf("\n");
     printf("heap usage: %zu\n", heap_usage);
 }
 ''')
@@ -100,7 +101,7 @@ int main(int argc, char **argv) {
         return '\n'.join(self.buffer)
 
     def generate_show(self):
-        self.append('void show(Value v) {')
+        self.append('void show(Value v, int level) {')
         self.indent()
 
         for term, routine_name, body_captures in self.show_data:
@@ -111,9 +112,10 @@ int main(int argc, char **argv) {
             self.indent()
             self.append(f'// {lam2str(term)} -- {inv_captures}')
 
+            self.append('if (level) { printf("("); }')
             self.generate_show_meat(term, inv_captures)
+            self.append('if (level) { printf(")"); }')
 
-            self.append('printf("\\n");')
             self.append('return;')
             self.dedent()
             self.append('}')
@@ -129,23 +131,36 @@ int main(int argc, char **argv) {
         self.append('}')
         self.dedent()
 
-    def generate_show_meat(self, term, inv_captures):
+    def generate_show_meat(self, term, inv_captures, level = 0):
         if isinstance(term, str):
             if term in inv_captures:
                 # It's a captured variable, call show() recursively to print it
-                self.append(f'show({inv_captures[term]});')
+                self.append(f'show({inv_captures[term]}, {level});')
             else:
                 self.append(f'printf("%s", "{term}");')
             return
 
         kind, car, cdr = term
         if kind == 'APP':
-            self.generate_show_meat(car, inv_captures)
+            if level > 1:
+                self.append('printf("(");')
+
+            self.generate_show_meat(car, inv_captures, 1)
             self.append('printf(" ");')
-            self.generate_show_meat(cdr, inv_captures)
+            self.generate_show_meat(cdr, inv_captures, 2)
+
+            if level > 1:
+                self.append('printf(")");')
+
         elif kind == 'LAM':
+            if level > 0:
+                self.append('printf("(");')
+
             self.append(f'printf("λ%s. ", "{car}");')
-            self.generate_show_meat(cdr, inv_captures)
+            self.generate_show_meat(cdr, inv_captures, 0)
+
+            if level > 0:
+                self.append('printf(")");')
         else:
             raise Exception(f'not a lambda term: {term}')
 
