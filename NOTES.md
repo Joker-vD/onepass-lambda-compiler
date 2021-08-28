@@ -85,3 +85,7 @@ So the full code looks something like this:
 So if you read from bottom to top, `lambda_0` puts `arg_z` at `env[0]` for `lambda_1`, then `lambda_1` puts `env[0]` from *its* `env` at `env[1]` for `lambda_2`, so when `lambda_2` accesses `env[1]`, it actually accesses the value of `arg_z` from `lambda_0`, as intended. Whew!
 
 Notice how we *don't* pre-calculate the free variables: we instead record and assign them closure slots on the fly.
+
+### Printing closure values
+
+Generating code for printing the closure values as λ-terms with captured substituted in is similar in spirit to the `lam2str()` function. Interestingly enough, we don't need to α-convert anything because of the call-to-value semantics: the captured variables reference the closures which are, well, closed. For example, value `λx. x y z + {y: λx. x + {}, z: λk. k x + {x: λx. x + {}}` should be printed as `λx. x (λx. x) (λk. k (λx. x))`. It's somewhat confusing but still correct and unambiguous for a careful enough reader. Of course, we could also have just mangled names, e.g. uniformly turning `x` into `x@lambda_11`, or carefully tracking the bound variables and appending numbers or primes, but eh.

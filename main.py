@@ -48,12 +48,12 @@ class Translator:
         self.captures = {}
         self.captures_stack = []
 
-        self.routine_names = []
+        self.show_data = []
 
     def translate(self, term):
         self.append(r'''#include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
+#include <stddef.h>
 
 typedef struct Value Value;
 
@@ -103,11 +103,16 @@ int main(int argc, char **argv) {
         self.append('void show(Value v) {')
         self.indent()
 
-        for routine_name in self.routine_names:
+        for term, routine_name, body_captures in self.show_data:
+            _, param, body = term
+            inv_captures = {v: k for k, v in body_captures.items()}
+
             # Nope, you can't switch on function pointers: they are not constants becase linkers is a thing
             self.append(f'if (v.fun == {routine_name}) {{')
             self.indent()
-            self.append(f'printf("{routine_name} with env at %p\\n", v.env);')
+            self.append(f'// {lam2str(term)} -- {inv_captures}')
+            self.append(f'printf("λ%s. ", "{param}");')
+            self.append('printf("\\n");')
             self.append('return;')
             self.dedent()
             self.append('}')
@@ -163,6 +168,8 @@ int main(int argc, char **argv) {
         self.enter_lambda_body(param, translated_param)
 
         body_captures = self.translate_lambda_body(body, routine_name, translated_param)
+
+        self.show_data.append((term, routine_name, body_captures))
 
         return self.build_lambda_value(routine_name, body_captures)
 
@@ -226,7 +233,6 @@ int main(int argc, char **argv) {
         counter = self.counter
         self.counter += 1
         result = f'lambda_{counter}'
-        self.routine_names.append(result)
         return result
 
     def next_temp(self):
