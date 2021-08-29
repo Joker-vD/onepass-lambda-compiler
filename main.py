@@ -93,41 +93,93 @@ class Interaction:
                 s = input('> ')
                 self.parse_cmd(s)
             except EOFError:
-                self.should_quit = True
+                self.cmd_quit()
             except Exception as e:
                 print(f'Failed: {e}', file=sys.stderr)
 
         print('Goodbye!')
 
     def parse_cmd(self, s):
+        s = s.lstrip()
+
+        if s.startswith("?"):
+            self.cmd_help('')
+            return
+
         if s.startswith(":"):
             cmd, s = chop(s[1:])
 
             if cmd == 'q':
-                self.should_quit = True
+                self.cmd_quit(s)
             elif cmd == 's':
-                name, s = chop(s)
-                if not is_var(name):
-                    raise Exception(f'Invalid name: {name}')
-                if s.startswith('='):
-                    s = s[1:]
-                self.defs.append((name, parse(s)))
+                self.cmd_set_macro(s)
             elif cmd == 'l':
-                for name, term in self.defs:
-                    print(f'{name} = {lam2str(term)}')
+                self.cmd_list_macros(s)
             elif cmd == 'f':
-                name = s
-                for i in reversed(range(0, len(self.defs))):
-                    if self.defs[i][0] == name:
-                        self.defs[i:] = self.defs[i+1:]
+                self.cmd_forget_macro(s)
+            elif cmd == 'h':
+                self.cmd_help(s)
             else:
-                raise Exception(f'Unknown command: {cmd}')
+                raise Exception(f'Unknown command: {cmd}. Try ":h" for help')
         else:
-            self.eval_and_print_term(parse(s))
+            self.cmd_eval_and_print_term(parse(s))
 
-    def eval_and_print_term(self, term):
+    def cmd_eval_and_print_term(self, term):
         print(lam2str(term))
         print(self.eval_term(term))
+
+    def cmd_quit(self, s):
+        self.should_quit = True
+
+    def cmd_set_macro(self, s):
+        name, s = chop(s)
+        if not is_var(name):
+            raise Exception(f'Invalid name: {name}')
+        if s.startswith('='):
+            s = s[1:]
+        self.defs.append((name, parse(s)))
+
+    def cmd_list_macros(self, s):
+        for name, term in self.defs:
+            print(f'{name} = {lam2str(term)}')
+
+    def cmd_forget_macro(self, s):
+        name = s
+        for i in reversed(range(0, len(self.defs))):
+            if self.defs[i][0] == name:
+                self.defs[i:] = self.defs[i+1:]
+
+    def cmd_help(self, s):
+        print('One-pass λ compiler')
+        print()
+        print('Enter a λ-calculus term to evaluate, or a special command. Special commands are:')
+        print('\t• :h — prints this help message')
+        print('\t• :q — quits the program')
+        print('\t• :s NAME [=] λ-TERM — add λ-TERM under name NAME to the evaluation environment. NAME must be a valid variable name')
+        print('\t• :f NAME — remove all λ-terms with name NAME from the evaluation environment')
+        print('\t• :l — print the evaluation environment')
+        print()
+        print('The supported syntax of the λ-calculus term is this EBNF grammar:')
+        print('\tTERM  ::=  LAM | APP')
+        print('\tLAM   ::=  (\'λ\' | \'\\\') VAR (\'.\' | \':\') APP')
+        print('\tAPP   ::=  ATOM { ATOM }')
+        print('\tATOM  ::=  VAR | \'(\' TERM \')\'')
+        print('VAR ~ [a-z_][a-z_A-Z0-9\']*')
+        print()
+        print('Input of multiline terms is supported: pressing [ENTER] while there are unbalanced open parentheses makes the program'
+            ' to expect the continuation of the input on the next line. Continuation lines are marked by "." prompt instead of the normal'
+            ' ">" prompt. Pressing [ENTER] on the continuation line without any non-whitespace input immediately aborts input.')
+        print()
+        print('Evaluation model is call-by-value. Before evaluating the input term, it is merged with the evaluation environment and the'
+            ' resulting term is evaluated instead. This merge is done using the usual let=>λ conversion, i.e., let x = e1 in e2 => (λx. e2) e1.'
+            ' For example, the following sequence of commands:')
+        print('\t:s const = λk. λ_. k')
+        print('\t:s zero = λs. λz. z')
+        print('\t:s one = λs. λz. s z')
+        print('\tone const zero')
+        print('will lead to evaluation of')
+        print('\t(λconst. (λzero. (λone. one const zero) (λs. λz. s z)) (λs. λz. z)) (λk. λ_. k)')
+        print('which should evaluate to λ_. λs. λz. z')
 
     def eval_term(self, term):
         full_term = self.build_full_term(term)
