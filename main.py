@@ -2,7 +2,7 @@
 
 import os
 
-from utils import put_file_contents
+from utils import put_file_contents, chop
 
 # No idea who invented this trick first, I've seen it in the code accompanying B. C. Pierce's TAPL;
 # basically, you kinda track what priority level the expression you're about to print has, and put parens
@@ -375,6 +375,15 @@ def test_run():
     ]):
         do_work(term, i)
 
+def is_var_start(ch):
+    return ch >= 'a' and ch <= 'z' or ch == '_'
+
+def is_var_cont(ch):
+    return is_var_start(ch) or ch == "'" or ch >= '0' and ch <= '9'
+
+def is_var(token):
+    return token and is_var_start(token[0])
+
 class Tokenizer:
     def __init__(self, s):
         self.s = s
@@ -402,9 +411,9 @@ class Tokenizer:
 
         curr = self.pos
         look = self.s[curr]
-        if self.is_var_start(look):
+        if is_var_start(look):
             curr += 1
-            while curr < self.len and self.is_var_cont(self.s[curr]):
+            while curr < self.len and is_var_cont(self.s[curr]):
                 curr += 1
         else:
             curr += 1
@@ -412,15 +421,6 @@ class Tokenizer:
         self.pos = curr
 
         return word
-
-    def is_var_start(self, ch):
-        return ch >= 'a' and ch <= 'z' or ch == '_'
-
-    def is_var_cont(self, ch):
-        return self.is_var_start(ch) or ch == "'" or ch >= '0' and ch <= '9'
-
-    def is_var(self, token):
-        return self.is_var_start(token[0])
 
 class Parser:
     def __init__(self, init_chunk):
@@ -444,22 +444,22 @@ class Parser:
 
     def parse_lambda(self):
         token = self.next()
-        if not self.tokenizer.is_var(token):
+        if not is_var(token):
             raise Exception(f'Expected variable after start of lambda but found {token} at {self.tokenizer.prev_pos}')
         param = token
         token = self.next()
         if token not in '.:':
             raise Exception(f'Expected "." or ":" after lambda head but found {token} at {self.tokenizer.prev_pos}')
         body, token = self.parse_term()
-        return ('LAM', param, body), token
+        return lam(param, body), token
 
     def parse_app(self, token):
         fun, token = self.parse_atomic(token)
         result = fun
 
-        while self.tokenizer.is_var(token) or token == '(':
+        while is_var(token) or token == '(':
             arg, token = self.parse_atomic(token)
-            result = ('APP', result, arg)
+            result = app(result, arg)
 
         return result, token
 
@@ -472,7 +472,7 @@ class Parser:
             self.parens -= 1
             return result, self.next()
 
-        if self.tokenizer.is_var(token):
+        if is_var(token):
             return token, self.next()
 
         raise Exception(f'expected "(" or a variable but found {token} at {self.tokenizer.prev_pos}')
@@ -483,6 +483,7 @@ class Parser:
 class Interaction:
     def __init__(self):
         self.should_quit = False
+        self.defs = []
 
     def interact(self):
         import sys
@@ -492,21 +493,53 @@ class Interaction:
                 s = input('> ')
                 self.parse_cmd(s)
             except EOFError:
-                print('Goodbye!')
                 self.should_quit = True
             except Exception as e:
                 print(f'Failed: {e}', file=sys.stderr)
 
+        print('Goodbye!')
+
     def parse_cmd(self, s):
-        p = Parser(s)
-        self.eval_and_print_term(p.parse())
+        if s.startswith(":"):
+            cmd, s = chop(s[1:])
+
+            if cmd == 'q':
+                self.should_quit = True
+            elif cmd == 's':
+                name, s = chop(s)
+                if not is_var(name):
+                    raise Exception(f'Invalid name: {name}')
+                if s.startswith('='):
+                    s = s[1:]
+                p = Parser(s)
+                self.defs.append((name, p.parse()))
+            elif cmd == 'l':
+                for name, term in self.defs:
+                    print(f'{name} = {lam2str(term)}')
+            elif cmd == 'f':
+                name = s
+                for i in reversed(range(0, len(self.defs))):
+                    if self.defs[i][0] == name:
+                        self.defs[i:] = self.defs[i+1:]
+            else:
+                raise Exception(f'Unknown command: {cmd}')
+        else:
+            p = Parser(s)
+            self.eval_and_print_term(p.parse())
 
     def eval_and_print_term(self, term):
         print(lam2str(term))
         print(self.eval_term(term))
 
     def eval_term(self, term):
-        return translate_compile_run(term, 'tmp', True)
+        full_term = self.build_full_term(term)
+        return translate_compile_run(full_term, 'tmp', True)
+
+    def build_full_term(self, term):
+        result = term
+        for name, term in reversed(self.defs):
+            result = app(lam(name, result), term)
+        return result
 
 def interactive_run():
     Interaction().interact()
