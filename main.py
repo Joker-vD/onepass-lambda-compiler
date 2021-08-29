@@ -152,22 +152,22 @@ class Interaction:
     def cmd_help(self, s):
         print('One-pass λ compiler')
         print()
-        print('Enter a λ-calculus term to evaluate, or a special command. Special commands are:')
+        print('Enter a λ-calculus term to evaluate or a special command. Special commands are:')
         print('\t• :h — prints this help message')
         print('\t• :q — quits the program')
-        print('\t• :s NAME [=] λ-TERM — add λ-TERM under name NAME to the evaluation environment. NAME must be a valid variable name')
-        print('\t• :f NAME — remove all λ-terms with name NAME from the evaluation environment')
-        print('\t• :l — print the evaluation environment')
+        print('\t• :s NAME [=] λ-TERM — adds λ-TERM under name NAME to the evaluation environment. NAME must be a valid variable name')
+        print('\t• :f NAME — removes all λ-terms with name NAME from the evaluation environment')
+        print('\t• :l — prints the evaluation environment')
         print()
         print('The supported syntax of the λ-calculus term is this EBNF grammar:')
         print('\tTERM  ::=  LAM | APP')
         print('\tLAM   ::=  (\'λ\' | \'\\\') VAR (\'.\' | \':\') APP')
         print('\tAPP   ::=  ATOM { ATOM }')
         print('\tATOM  ::=  VAR | \'(\' TERM \')\'')
-        print('VAR ~ [a-z_][a-z_A-Z0-9\']*')
+        print('\tVAR    ~   [a-z_][a-z_A-Z0-9\']*')
         print()
         print('Input of multiline terms is supported: pressing [ENTER ⏎] while there are unbalanced open parentheses makes the program'
-            ' to expect the continuation of the input on the next line. Continuation lines are marked by "." prompt instead of the normal'
+            ' to expect the continuation of the input on the next line(s). Continuation lines are marked by "." prompt instead of the normal'
             ' ">" prompt. Pressing [ENTER ⏎] on the continuation line without any non-whitespace input immediately aborts input.')
         print()
         print('Evaluation model is call-by-value. Before evaluating the input term, it is merged with the evaluation environment and the'
