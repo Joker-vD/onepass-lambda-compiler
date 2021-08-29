@@ -166,9 +166,9 @@ class Interaction:
         print('\tATOM  ::=  VAR | \'(\' TERM \')\'')
         print('VAR ~ [a-z_][a-z_A-Z0-9\']*')
         print()
-        print('Input of multiline terms is supported: pressing [ENTER] while there are unbalanced open parentheses makes the program'
+        print('Input of multiline terms is supported: pressing [ENTER ⏎] while there are unbalanced open parentheses makes the program'
             ' to expect the continuation of the input on the next line. Continuation lines are marked by "." prompt instead of the normal'
-            ' ">" prompt. Pressing [ENTER] on the continuation line without any non-whitespace input immediately aborts input.')
+            ' ">" prompt. Pressing [ENTER ⏎] on the continuation line without any non-whitespace input immediately aborts input.')
         print()
         print('Evaluation model is call-by-value. Before evaluating the input term, it is merged with the evaluation environment and the'
             ' resulting term is evaluated instead. This merge is done using the usual let=>λ conversion, i.e., let x = e1 in e2 => (λx. e2) e1.'
@@ -177,9 +177,9 @@ class Interaction:
         print('\t:s zero = λs. λz. z')
         print('\t:s one = λs. λz. s z')
         print('\tone const zero')
-        print('will lead to evaluation of')
+        print('will evaluate the term')
         print('\t(λconst. (λzero. (λone. one const zero) (λs. λz. s z)) (λs. λz. z)) (λk. λ_. k)')
-        print('which should evaluate to λ_. λs. λz. z')
+        print('which should result in λ_. λs. λz. z')
 
     def eval_term(self, term):
         full_term = self.build_full_term(term)
