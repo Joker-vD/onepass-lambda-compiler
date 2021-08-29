@@ -5,7 +5,7 @@ def is_var_start(ch):
     return ch >= 'a' and ch <= 'z' or ch == '_'
 
 def is_var_cont(ch):
-    return is_var_start(ch) or ch == "'" or ch >= '0' and ch <= '9'
+    return is_var_start(ch) or ch == "'" or ch >= '0' and ch <= '9' or ch >= 'A' and ch <= 'Z'
 
 def is_var(token):
     return token and is_var_start(token[0])
