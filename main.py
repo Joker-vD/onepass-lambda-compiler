@@ -57,13 +57,9 @@ def do_test(term, ctx):
 
 def test_run():
     const = lam('k', lam('_', 'k'))
-
     church_succ = lam('n', lam('s', lam('z', app('s', app(app('n', 's'), 'z')))))
-
     church_pred = lam('n', lam('s', lam('z', app(app(app('n', lam('g', lam('h', app('h', app('g', 's'))))), app(const(), 'z')), lam('t', 't')))))
-
     church_zero = lam('s', lam('z', 'z'))
-
     church_four = lam('s', lam('z', app('s', app('s', app('s', app('s', 'z'))))))
 
     for i, term in enumerate([
@@ -80,6 +76,9 @@ def test_run():
     ]):
         do_test(term, i)
 
+
+# A very simple REPL, what else to say? The command parser could have been a bit more
+# prinicipled, but if you haven't noticed yet, this project tries to not overbuild anything
 class Interaction:
     def __init__(self):
         self.should_quit = False
@@ -194,9 +193,11 @@ class Interaction:
 def interactive_run():
     Interaction().interact()
 
+
 def main():
     #test_run()
     interactive_run()
+
 
 if __name__ == '__main__':
     main()

@@ -1,5 +1,8 @@
 from olc_ast import lam, app
 
+# There are lots of ways to tokenize the string, just as there are lots of ways to parse it;
+# some people even managed to parse it with PCREs, but I never could remember the regex syntax
+# well enough and unless someone makes gdb support regexes, I will prefer to debug the code I wrote
 
 def is_var_start(ch):
     return ch >= 'a' and ch <= 'z' or ch == '_'
@@ -21,6 +24,8 @@ class Tokenizer:
         while self.pos < self.len and self.s[self.pos] in '\t\r\x20\v\f':
             self.pos += 1
 
+    # All tokens are simply strings, with string 'EOF' as an end-of-input marker. It
+    # works only because variables can't start with an uppercase letter.
     def next(self, continue_line=True):
         self.skip_ws()
         self.prev_pos = self.pos
@@ -31,6 +36,9 @@ class Tokenizer:
                 self.len = len(self.s)
                 self.prev_pos = 0
                 self.pos = 0
+
+                # False, so that empty input will break out. This way, I don't
+                # have to muddle with handling Ctrl+C or some other key combination
                 return self.next(False)
             else:
                 return 'EOF'
@@ -47,6 +55,11 @@ class Tokenizer:
         self.pos = curr
 
         return word
+
+# Recursive descent FTW. Again, there are lots of ways to structure it, and
+# this one is somewhat unusual: there is no prev/curr or curr/peek token stored
+# inside the parser, instead one token of lookahead is explicitly passed around
+# to and from parse_xxx() functions.
 
 class Parser:
     def __init__(self, init_chunk):
@@ -103,6 +116,8 @@ class Parser:
 
         raise Exception(f'expected "(" or a variable but found {token} at {self.tokenizer.prev_pos}')
 
+    # A simple and cheap way to get multi-line input while still having [ENTER] terminating the term.
+    # Python actually uses something very similar
     def next(self):
         return self.tokenizer.next(self.parens != 0)
 

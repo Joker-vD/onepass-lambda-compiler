@@ -97,6 +97,9 @@ int main(int argc, char **argv) {
         self.append('}')
         self.dedent()
 
+    # Uses the same idea that lam2str does, but with some meta-twists: it's not immediately obvious when you
+    # should generate a recursive call to the C show() function, or call recursively generate_show_meat() itself;
+    # the same goes to printing the parentheses: "level" is checked both in Python and in C code. Mind-bending!
     def generate_show_meat(self, term, inv_captures, level = 0):
         if isinstance(term, str):
             if term in inv_captures:
@@ -145,9 +148,13 @@ int main(int argc, char **argv) {
 
         raise Exception(f'not a lambda term: {term}')
 
+    # It's always either "arg_NAME" or "env[OFFSET]"", so no need for an additional temporary
     def translate_var(self, var):
         return self.lookup_var(var), []
 
+    # If it's the current lambda's parameter, return it. Otherwise it's a captured variable: allocate
+    # a slot in the closure and record this fact in the symbol table. On the next occurence of the same
+    # captured variable, the recorded slot will be reused
     def lookup_var(self, var):
         if var in self.env:
             return self.env[var]
@@ -175,6 +182,8 @@ int main(int argc, char **argv) {
 
         return self.build_lambda_value(routine_name, body_captures)
 
+    # Returns the map {offset in the environment => name of the captured variable} containing all the
+    # variables captured inside the lambda's body
     def translate_lambda_body(self, body, routine_name, translated_param):
         body_value, body_stmts = self.translate_term(body)
 
@@ -187,6 +196,9 @@ int main(int argc, char **argv) {
 
         return self.leave_lambda_body()
 
+    # Takes the {offset in the environment => name of the captured variable} map and build the
+    # environment according to it. Crucially, the variable lookup is performed outside of the
+    # lambda's body
     def build_lambda_value(self, routine_name, body_captures):
         value = self.next_temp()
 
@@ -242,6 +254,10 @@ int main(int argc, char **argv) {
         self.counter += 1
         return f'tmp_{counter}'
 
+    # Maintaining the stack of previous environments/capture lists is the simplest way, given that we don't
+    # actually need to lookup anything in the parent environments (because we are translating untyped,
+    # vanilla λ-calculus). But throw in types, letrec, and uncurried functions, and you may need an actual
+    # symbol table.
     def enter_lambda_body(self, param, translated_param):
         self.env_stack.append(self.env)
         self.env = {param: translated_param}

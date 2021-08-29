@@ -1,7 +1,6 @@
 ### Value representation
 
-In λ-calculus the only values are functions. We will represent them as
-fat function pointers:
+In λ-calculus the only values are functions. We will represent them as fat function pointers:
 
     typedef struct Value Value;
 
