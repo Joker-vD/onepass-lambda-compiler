@@ -3,299 +3,10 @@
 import os
 
 from utils import put_file_contents, chop
+from olc_ast import lam, app, lam2str
+from olc_parser import is_var, parse
+from translator import translate
 
-# No idea who invented this trick first, I've seen it in the code accompanying B. C. Pierce's TAPL;
-# basically, you kinda track what priority level the expression you're about to print has, and put parens
-# around it if it's low enough to need it. Here, level 0 is "either top or a body of a lambda", level 1 is
-# "lhs of the application", and level 2 is "rhs of an application". Variables never need parens, lambdas
-# need parens if they're being applied from whatever side, and applications need parens only when they're
-# on the rhs of another application
-def lam2str(term, level=0):
-    if isinstance(term, str):
-        return term
-
-    kind, car, cdr = term
-    if kind == 'LAM':
-        result = f'λ{car}. {lam2str(cdr, 0)}'
-        if level > 0:
-            result = f'({result})'
-        return result
-
-    if kind == 'APP':
-        result = f'{lam2str(car, 1)} {lam2str(cdr, 2)}'
-        if level > 1:
-            result = f'({result})'
-        return result
-
-    raise Exception(f'not a lambda term: {term}')
-
-
-def lam(param, body):
-    return ('LAM', param, body)
-
-def app(fun, arg):
-    return ('APP', fun, arg)
-
-
-# Gonna need some context
-class Translator:
-    def __init__(self):
-        self.counter = 0
-        self.buffer = []
-        self.indentation = ''
-
-        self.env = {}
-        self.env_stack = []
-
-        self.captures = {}
-        self.captures_stack = []
-
-        self.show_data = []
-
-    def translate(self, term):
-        self.append(r'''#include <stdio.h>
-#include <stdlib.h>
-#include <stddef.h>
-
-typedef struct Value Value;
-
-typedef Value (*Lambda)(Value* env, Value arg);
-
-struct Value {
-    Lambda fun;
-    Value* env;
-};
-
-static Value* tmpenv;
-static size_t heap_usage;
-''')
-
-        self.append(f'// {lam2str(term)}')
-        self.append('')
-
-        # One way to translate top-level expression is to wrap it into a lambda with dummy parameter,
-        # and then do some specific meddling with the result. Here, we *don't* generate the closure,
-        # but instead check that no variables were captured.
-        self.enter_lambda_body('', '_')
-        top_level_captures = self.translate_lambda_body(term, 'body', '_')
-
-        if top_level_captures:
-            raise Exception(f'unbound variables: {list(map(str, top_level_captures.values()))}')
-
-        self.generate_show()
-
-        # I don't quite know how to handle the top-level expression better. But it's possible, of course
-        self.append(r'''
-Value dummy_lambda(Value* env, Value arg) {
-    fprintf(stderr, "%s\n", "dummy lambda invoked");
-    exit(1);
-}''')
-
-        self.append(r'''
-int main(int argc, char **argv) {
-    Value dummy = { .fun = dummy_lambda, .env = NULL };
-    show(body(NULL, dummy), 0);
-    printf("\n");
-    fprintf(stderr, "heap usage: %zu\n", heap_usage);
-}
-''')
-
-        return '\n'.join(self.buffer)
-
-    def generate_show(self):
-        self.append('void show(Value v, int level) {')
-        self.indent()
-
-        for term, routine_name, body_captures in self.show_data:
-            inv_captures = {v: f'v.env[{k}]' for k, v in body_captures.items()}
-
-            # Nope, you can't switch on function pointers: they are not constants becase linkers is a thing
-            self.append(f'if (v.fun == {routine_name}) {{')
-            self.indent()
-            self.append(f'// {lam2str(term)} -- {inv_captures}')
-
-            self.append('if (level) { printf("("); }')
-            self.generate_show_meat(term, inv_captures)
-            self.append('if (level) { printf(")"); }')
-
-            self.append('return;')
-            self.dedent()
-            self.append('}')
-
-        self.append(r'''fprintf(stderr, "unknown function pointer: ");
-    unsigned char *funptr = (unsigned char *)&v.fun;
-    for (size_t i = 0; i < sizeof(Lambda); i++) {
-        printf("%02x", funptr[i]);
-    }
-    fprintf(stderr, "\n");
-    exit(1);''')
-
-        self.append('}')
-        self.dedent()
-
-    def generate_show_meat(self, term, inv_captures, level = 0):
-        if isinstance(term, str):
-            if term in inv_captures:
-                # It's a captured variable, call show() recursively to print it
-                self.append(f'show({inv_captures[term]}, {level});')
-            else:
-                self.append(f'printf("%s", "{term}");')
-            return
-
-        kind, car, cdr = term
-        if kind == 'APP':
-            if level > 1:
-                self.append('printf("(");')
-
-            self.generate_show_meat(car, inv_captures, 1)
-            self.append('printf(" ");')
-            self.generate_show_meat(cdr, inv_captures, 2)
-
-            if level > 1:
-                self.append('printf(")");')
-
-        elif kind == 'LAM':
-            if level > 0:
-                self.append('printf("(");')
-
-            self.append(f'printf("λ%s. ", "{car}");')
-            self.generate_show_meat(cdr, inv_captures, 0)
-
-            if level > 0:
-                self.append('printf(")");')
-        else:
-            raise Exception(f'not a lambda term: {term}')
-
-    # Returns a name of a C variable that has inside it the calculated value of the term, and the list of
-    # C statements that fill that variable
-    def translate_term(self, term):
-        if isinstance(term, str):
-            return self.translate_var(term)
-
-        kind, car, cdr = term
-        if kind == 'LAM':
-            return self.translate_lam(term)
-
-        if kind == 'APP':
-            return self.translate_app(term)
-
-        raise Exception(f'not a lambda term: {term}')
-
-    def translate_var(self, var):
-        return self.lookup_var(var), []
-
-    def lookup_var(self, var):
-        if var in self.env:
-            return self.env[var]
-
-        closure_offset = len(self.captures)
-        self.env[var] = f'env[{closure_offset}]'
-        self.captures[closure_offset] = var
-        return self.env[var]
-
-    def translate_lam(self, term):
-        _, param, body = term
-
-        # Right, here things get tricky. We need to a) generate the C function *at the top-level of the file*,
-        # b) generate Value with proper funptr and environment *at the current place*. And that current place
-        # will generally be inside one of the other top-level functions being generated up the callstack.
-
-        routine_name = self.next_routine()
-        translated_param = f'arg_{param}'
-
-        self.enter_lambda_body(param, translated_param)
-
-        body_captures = self.translate_lambda_body(body, routine_name, translated_param)
-
-        self.show_data.append((term, routine_name, body_captures))
-
-        return self.build_lambda_value(routine_name, body_captures)
-
-    def translate_lambda_body(self, body, routine_name, translated_param):
-        body_value, body_stmts = self.translate_term(body)
-
-        self.append(f'Value {routine_name}(Value* env, Value {translated_param}) {{')
-        self.indent()
-        self.extend(body_stmts)
-        self.append(f'return {body_value};')
-        self.dedent()
-        self.append('}')
-
-        return self.leave_lambda_body()
-
-    def build_lambda_value(self, routine_name, body_captures):
-        value = self.next_temp()
-
-        translated_captures = [self.lookup_var(body_captures[i]) for i in range(0, len(body_captures))]
-
-        if translated_captures:
-            mem_size = f'{len(translated_captures)} * sizeof(Value)'
-            env = ', '.join([
-                f'(tmpenv = malloc({mem_size})',
-                f'heap_usage += {mem_size}',
-                *[f'tmpenv[{i}] = {c}' for i, c in enumerate(translated_captures)],
-                'tmpenv)'])
-        else:
-            env = 'NULL'
-
-        return value, [
-            f'Value {value} = {{ .fun = {routine_name}, .env = {env} }};'
-        ]
-
-    def translate_app(self, term):
-        _, fun, arg = term
-
-        fun_value, fun_stmts = self.translate_term(fun)
-        arg_value, arg_stmts = self.translate_term(arg)
-
-        value = self.next_temp()
-
-        return value, fun_stmts + arg_stmts + [
-            f'Value {value} = {fun_value}.fun({fun_value}.env, {arg_value});'
-        ]
-
-    def append(self, line):
-        self.buffer.append(f'{self.indentation}{line}')
-
-    def extend(self, lines):
-        for line in lines:
-            self.append(line)
-
-    def indent(self):
-        self.indentation += '\t'
-
-    def dedent(self):
-        self.indentation = self.indentation[:-1]
-
-    def next_routine(self):
-        counter = self.counter
-        self.counter += 1
-        result = f'lambda_{counter}'
-        return result
-
-    def next_temp(self):
-        counter = self.counter
-        self.counter += 1
-        return f'tmp_{counter}'
-
-    def enter_lambda_body(self, param, translated_param):
-        self.env_stack.append(self.env)
-        self.env = {param: translated_param}
-
-        self.captures_stack.append(self.captures)
-        self.captures = {}
-
-    def leave_lambda_body(self):
-        self.env = self.env_stack.pop()
-
-        body_captures = self.captures
-        self.captures = self.captures_stack.pop()
-        return body_captures
-
-def translate(term):
-    # Does anybody know the "proper" way to define such helper classes? You can't really call
-    # translate() second time with some other term, it's really just a one-shot context
-    return Translator().translate(term)
 
 def compile_and_run(c_filename):
     # Technically, I could try to use $CC, but do *you* have it set in your environment? If
@@ -332,7 +43,7 @@ def translate_compile_run(term, ctx, keep_c_file):
         if not keep_c_file:
             os.remove(c_filename)
 
-def do_work(term, ctx):
+def do_test(term, ctx):
     print(ctx)
     print(lam2str(term))
 
@@ -344,23 +55,17 @@ def do_work(term, ctx):
         print(result)
 
 
-def const():
-    return lam('k', lam('_', 'k'))
-
-def church_succ():
-    return lam('n', lam('s', lam('z', app('s', app(app('n', 's'), 'z')))))
-
-def church_pred():
-    return lam('n', lam('s', lam('z', app(app(app('n', lam('g', lam('h', app('h', app('g', 's'))))), app(const(), 'z')), lam('t', 't')))))
-
-def church_zero():
-    return lam('s', lam('z', 'z'))
-
-def church_four():
-    return lam('s', lam('z', app('s', app('s', app('s', app('s', 'z'))))))
-
-
 def test_run():
+    const = lam('k', lam('_', 'k'))
+
+    church_succ = lam('n', lam('s', lam('z', app('s', app(app('n', 's'), 'z')))))
+
+    church_pred = lam('n', lam('s', lam('z', app(app(app('n', lam('g', lam('h', app('h', app('g', 's'))))), app(const(), 'z')), lam('t', 't')))))
+
+    church_zero = lam('s', lam('z', 'z'))
+
+    church_four = lam('s', lam('z', app('s', app('s', app('s', app('s', 'z'))))))
+
     for i, term in enumerate([
         lam('x', 'x'),
         app(lam('x', 'x'), lam('x', 'x')),
@@ -370,115 +75,10 @@ def test_run():
         app(app(lam('z', lam('y', lam('x', app('z', app('y', 'x'))))), lam('t', app('t', app('t', 't')))), lam('t', 't')),
         lam('x', 'y'),
         lam('x', lam('y', 'z')),
-        app(church_pred(), church_four()),
-        app(app(app(church_pred(), church_four()), church_succ()), church_zero()),
+        app(church_pred, church_four),
+        app(app(app(church_pred, church_four), church_succ), church_zero),
     ]):
-        do_work(term, i)
-
-def is_var_start(ch):
-    return ch >= 'a' and ch <= 'z' or ch == '_'
-
-def is_var_cont(ch):
-    return is_var_start(ch) or ch == "'" or ch >= '0' and ch <= '9'
-
-def is_var(token):
-    return token and is_var_start(token[0])
-
-class Tokenizer:
-    def __init__(self, s):
-        self.s = s
-        self.len = len(s)
-        self.prev_pos = 0
-        self.pos = 0
-
-    def skip_ws(self):
-        while self.pos < self.len and self.s[self.pos] in '\t\r\x20\v\f':
-            self.pos += 1
-
-    def next(self, continue_line=True):
-        self.skip_ws()
-        self.prev_pos = self.pos
-
-        if self.pos == self.len:
-            if continue_line:
-                self.s = input('. ')
-                self.len = len(self.s)
-                self.prev_pos = 0
-                self.pos = 0
-                return self.next(False)
-            else:
-                return 'EOF'
-
-        curr = self.pos
-        look = self.s[curr]
-        if is_var_start(look):
-            curr += 1
-            while curr < self.len and is_var_cont(self.s[curr]):
-                curr += 1
-        else:
-            curr += 1
-        word = self.s[self.pos:curr]
-        self.pos = curr
-
-        return word
-
-class Parser:
-    def __init__(self, init_chunk):
-        self.tokenizer = Tokenizer(init_chunk)
-        self.parens = 0
-
-    def parse(self):
-        term, token = self.parse_term()
-
-        if token != 'EOF':
-            raise Exception(f'Extraneous symbols at {self.tokenizer.prev_pos}')
-
-        return term
-
-    def parse_term(self):
-        token = self.next()
-        if token in 'λ\\':
-            return self.parse_lambda()
-        else:
-            return self.parse_app(token)
-
-    def parse_lambda(self):
-        token = self.next()
-        if not is_var(token):
-            raise Exception(f'Expected variable after start of lambda but found {token} at {self.tokenizer.prev_pos}')
-        param = token
-        token = self.next()
-        if token not in '.:':
-            raise Exception(f'Expected "." or ":" after lambda head but found {token} at {self.tokenizer.prev_pos}')
-        body, token = self.parse_term()
-        return lam(param, body), token
-
-    def parse_app(self, token):
-        fun, token = self.parse_atomic(token)
-        result = fun
-
-        while is_var(token) or token == '(':
-            arg, token = self.parse_atomic(token)
-            result = app(result, arg)
-
-        return result, token
-
-    def parse_atomic(self, token):
-        if token == '(':
-            self.parens += 1
-            result, token = self.parse_term()
-            if token != ')':
-                raise Exception(f'Expected ")" after parenthesized expression but found {token} at {self.tokenizer.prev_pos}')
-            self.parens -= 1
-            return result, self.next()
-
-        if is_var(token):
-            return token, self.next()
-
-        raise Exception(f'expected "(" or a variable but found {token} at {self.tokenizer.prev_pos}')
-
-    def next(self):
-        return self.tokenizer.next(self.parens != 0)
+        do_test(term, i)
 
 class Interaction:
     def __init__(self):
@@ -511,8 +111,7 @@ class Interaction:
                     raise Exception(f'Invalid name: {name}')
                 if s.startswith('='):
                     s = s[1:]
-                p = Parser(s)
-                self.defs.append((name, p.parse()))
+                self.defs.append((name, parse(s)))
             elif cmd == 'l':
                 for name, term in self.defs:
                     print(f'{name} = {lam2str(term)}')
@@ -524,8 +123,7 @@ class Interaction:
             else:
                 raise Exception(f'Unknown command: {cmd}')
         else:
-            p = Parser(s)
-            self.eval_and_print_term(p.parse())
+            self.eval_and_print_term(parse(s))
 
     def eval_and_print_term(self, term):
         print(lam2str(term))
