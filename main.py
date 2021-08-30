@@ -228,6 +228,11 @@ class Interaction:
         return result
 
 def interactive_run():
+    try:
+        import readline
+    except ModuleNotFoundError:
+        pass
+
     Interaction().interact()
 
 
