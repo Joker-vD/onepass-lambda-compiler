@@ -15,7 +15,6 @@ Enter a λ-calculus term to evaluate or a special command. Special commands are:
 * `:f NAME` — removes all λ-terms with name NAME from the evaluation environment
 * `:l` — prints the evaluation environment
 * `:o FILENAME` — reads and evaluates all lines from the file named FILENAME
-* `# text...` — comment until the end of the line
 
 The supported syntax of the λ-calculus term is this EBNF grammar:
 
@@ -26,6 +25,8 @@ The supported syntax of the λ-calculus term is this EBNF grammar:
     VAR    ~   [a-z_][a-z_A-Z0-9']*
 
 Input of multiline terms is supported: pressing <kbd>Enter ⏎</kbd> while there are unbalanced open parentheses makes the program to expect the continuation of the input on the next line(s). Continuation lines are marked by `.` prompt instead of the normal `>` prompt. Pressing <kbd>Enter ⏎</kbd> on the continuation line without any non-whitespace input immediately aborts input.
+
+Comments are started by `#` symbol and extend until the end of the line.
 
 Evaluation model is call-by-value. Before evaluating the input term, it is merged with the evaluation environment and the resulting term is evaluated instead. This merge is done using the usual let=>λ conversion, i.e., `let x = e1 in e2 => (λx. e2) e1`.
 

@@ -37,7 +37,7 @@
 :s half_adder_cps = λa.λb. λk. k (xor a b) (and a b)
 
 :s full_adder_cps = λa.λb.λcin. λk. (
-    half_adder_cps a b (λhalf_s.λhalf_cout.
+    half_adder_cps a b (λhalf_s.λhalf_cout.     # This looks almost like a switch/case
     half_adder_cps half_s cin (λs.λhalf_out'.
     k s (or half_cout half_out')
 )))
@@ -45,7 +45,7 @@
 :s byte_adc = λbyte1. λbyte2. byte2 (byte1 (
     λa7.λa6.λa5.λa4.λa3.λa2.λa1.λa0.
         λb7.λb6.λb5.λb4.λb3.λb2.λb1.λb0.
-            half_adder_cps a0 b0 (λs0.λc0.
+            half_adder_cps a0 b0 (λs0.λc0.      # This definitely looks like a switch/case
             full_adder_cps a1 b1 c0 (λs1.λc1.
             full_adder_cps a2 b2 c1 (λs2.λc2.
             full_adder_cps a3 b3 c2 (λs3.λc3.
@@ -54,7 +54,8 @@
             full_adder_cps a6 b6 c5 (λs6.λc6.
             full_adder_cps a7 b7 c6 (λs7.λc7.
             pair (byte s7 s6 s5 s4 s3 s2 s1 s0) c7
-))))))))))
+# These are your father's parentheses. Elegant weapons. For a more... civilized age. © xkcd
+))))))))))#))))))))))))))))))))))))))))))))))))))))
 :s byte_add = λbyte1. λbyte2. fst (byte_adc byte1 byte2)
 
 
@@ -63,7 +64,7 @@
 
 byte_add byte_127 byte_2
 
-:s fib' = \fib'. \n.\i. \prev.\curr. (byte_eq n i) (\_. curr) (\_. fib' fib' n (byte_add i byte_1) curr (byte_add prev curr)) (\u.u)
+:s fib' = \fib'. \n.\i. \prev.\curr. (byte_eq n i) (\_. curr) (\_. fib' fib' n (byte_add i byte_1) curr (byte_add prev curr)) (\u.u) # (\u.u/)
 :s fib  = \n. (byte_iszero n) (\_. byte_0) (\_. fib' fib' n byte_1 byte_0 byte_1) (\u.u)
 
 # Should evaluate to 21 i.e. 0b00010101

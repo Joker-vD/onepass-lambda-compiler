@@ -20,9 +20,11 @@ class Tokenizer:
         self.len = len(s)
         self.prev_pos = 0
         self.pos = 0
+        self.ws = 0
 
     def skip_ws(self):
         while self.pos < self.len and self.s[self.pos] in '\t\r\x20\v\f':
+            self.ws += 1
             self.pos += 1
 
     # All tokens are simply strings, with string 'EOF' as an end-of-input marker. It
@@ -33,14 +35,16 @@ class Tokenizer:
 
         if self.pos == self.len:
             if continue_line:
+                # Two completely empty lines in a row (no comments, just whitespace) will
+                # break out of this input-continuation loop. This way, I don't need to support
+                # Ctrl+C, or Ctrl+G or whatever other key combination to throw away current input
+                continue_line = self.ws != self.pos
                 self.s = self.prompter('. ')
                 self.len = len(self.s)
                 self.prev_pos = 0
                 self.pos = 0
-
-                # False, so that empty input will break out. This way, I don't
-                # have to muddle with handling Ctrl+C or some other key combination
-                return self.next(False)
+                self.ws = 0
+                return self.next(continue_line)
             else:
                 return 'EOF'
 
@@ -50,6 +54,13 @@ class Tokenizer:
             curr += 1
             while curr < self.len and is_var_cont(self.s[curr]):
                 curr += 1
+        elif look == '#':
+            while curr < self.len and self.s[curr] != '\n':
+                curr += 1
+            if curr < self.len:
+                curr += 1
+            self.pos = curr
+            return self.next(continue_line)
         else:
             curr += 1
         word = self.s[self.pos:curr]

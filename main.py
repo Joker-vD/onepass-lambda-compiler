@@ -36,7 +36,7 @@ def compile_and_run(c_filename):
     p = subprocess.run(cmd, shell=use_shell, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
     if p.returncode != 0:
-        raise Exception(f'compilation failed: {p.stderr}')
+        raise Exception(f'compilation failed: {p.stdout}\n{p.stderr}')
 
     try:
         p = subprocess.run([os.path.join('.', exe_filename)], stdout=subprocess.PIPE)
