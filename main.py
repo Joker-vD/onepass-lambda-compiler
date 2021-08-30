@@ -2,34 +2,47 @@
 
 import os
 
-from utils import put_file_contents, get_file_contents, chop
+from utils import put_file_contents, get_file_contents, chop, delete_file
 from olc_ast import lam, app, lam2str
 from olc_parser import is_var, parse
 from translator import translate
 
 
-def compile_and_run(c_filename):
+def get_cc_invocation(c_filename):
     # Technically, I could try to use $CC, but do *you* have it set in your environment? If
     # yes, please let everyone on the Internet know. Anyway, just put in here whatever invocation
     # works on your machine
-    import subprocess
-
     basename, _ = os.path.splitext(c_filename)
     obj_filename = f'{basename}.obj'
     exe_filename = f'{basename}.exe'
 
-    cmd = ' '.join([
-        r'"D:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" && cl.exe /O2',
-        c_filename,
-        f'/link /out:{exe_filename}'
-    ])
-    p = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if os.name == 'nt':
+        cmd = ' '.join([
+            r'"D:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" && cl.exe /O2',
+            c_filename,
+            f'/link /out:{exe_filename}'
+        ])
+        use_shell = True
+    else:
+        cmd = ['gcc', '-o', exe_filename, c_filename]
+        use_shell = False
+
+    return cmd, use_shell, obj_filename, exe_filename
+
+def compile_and_run(c_filename):
+    import subprocess
+
+    cmd, use_shell, obj_filename, exe_filename = get_cc_invocation(c_filename)
+    p = subprocess.run(cmd, shell=use_shell, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    if p.returncode != 0:
+        raise Exception(f'compilation failed: {p.stderr}')
 
     try:
         p = subprocess.run([os.path.join('.', exe_filename)], stdout=subprocess.PIPE)
     finally:
-        os.remove(obj_filename)
-        os.remove(exe_filename)
+        delete_file(obj_filename)
+        delete_file(exe_filename)
 
     return p.stdout.decode()
 
@@ -41,7 +54,7 @@ def translate_compile_run(term, ctx, keep_c_file):
         return compile_and_run(c_filename)
     finally:
         if not keep_c_file:
-            os.remove(c_filename)
+            delete_file(c_filename)
 
 def do_test(term, ctx):
     print(ctx)
@@ -122,7 +135,7 @@ class Interaction:
             elif cmd == 'h':
                 self.cmd_help(s)
             else:
-                raise Exception(f'Unknown command: {cmd}. Try ":h" for help')
+                raise Exception(f'unknown command: {cmd}. Try ":h" for help')
         else:
             self.cmd_eval_and_print_term(parse(s, self.input))
 
@@ -136,7 +149,7 @@ class Interaction:
     def cmd_set_macro(self, s):
         name, s = chop(s)
         if not is_var(name):
-            raise Exception(f'Invalid name: {name}')
+            raise Exception(f'invalid name: {name}')
         if s.startswith('='):
             s = s[1:]
         self.defs.append((name, parse(s, self.input)))

@@ -16,3 +16,11 @@ def chop(s, sep=None):
         return chunks[0], ''
     else:
         return chunks[0], chunks[1]
+
+def delete_file(filename):
+    import os
+
+    try:
+        os.remove(filename)
+    except FileNotFoundError:
+        pass

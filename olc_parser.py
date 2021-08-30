@@ -71,7 +71,7 @@ class Parser:
         term, token = self.parse_term()
 
         if token != 'EOF':
-            raise Exception(f'Extraneous symbols at {self.tokenizer.prev_pos}')
+            raise Exception(f'extraneous symbols at {self.tokenizer.prev_pos}')
 
         return term
 
@@ -85,11 +85,11 @@ class Parser:
     def parse_lambda(self):
         token = self.next()
         if not is_var(token):
-            raise Exception(f'Expected variable after start of lambda but found {token} at {self.tokenizer.prev_pos}')
+            raise Exception(f'expected variable after start of lambda but found {token} at {self.tokenizer.prev_pos}')
         param = token
         token = self.next()
         if token not in '.:':
-            raise Exception(f'Expected "." or ":" after lambda head but found {token} at {self.tokenizer.prev_pos}')
+            raise Exception(f'expected "." or ":" after lambda head but found {token} at {self.tokenizer.prev_pos}')
         body, token = self.parse_term()
         return lam(param, body), token
 
@@ -108,7 +108,7 @@ class Parser:
             self.parens += 1
             result, token = self.parse_term()
             if token != ')':
-                raise Exception(f'Expected ")" after parenthesized expression but found {token} at {self.tokenizer.prev_pos}')
+                raise Exception(f'expected ")" after parenthesized expression but found {token} at {self.tokenizer.prev_pos}')
             self.parens -= 1
             return result, self.next()
 

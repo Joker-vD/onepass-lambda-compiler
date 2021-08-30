@@ -1,6 +1,10 @@
 # One-pass λ compiler
 Turning λ into C in one pass!
 
+# Configuration
+
+This application requires installed C compile. Please edit function `get_cc_invocation()` inside `main.py` file if it can't find the C compiler on your system out of the box (it most likely won't unless your system is Linux with gcc).
+
 # Usage
 
 Enter a λ-calculus term to evaluate or a special command. Special commands are:
