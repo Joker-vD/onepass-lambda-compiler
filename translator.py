@@ -172,7 +172,7 @@ int main(int argc, char **argv) {
         # will generally be inside one of the other top-level functions being generated up the callstack.
 
         routine_name = self.next_routine()
-        translated_param = f'arg_{param}'
+        translated_param = f'arg_{mangle_for_c(param)}'
 
         self.enter_lambda_body(param, translated_param)
 
@@ -271,6 +271,17 @@ int main(int argc, char **argv) {
         body_captures = self.captures
         self.captures = self.captures_stack.pop()
         return body_captures
+
+def mangle_for_c(name):
+    result = ''
+    for ch in name:
+        if ch == '_':
+            result += '_x5F'
+        elif ch == '\'':
+            result += '_x27'
+        else:
+            result += ch
+    return result
 
 def translate(term):
     # Does anybody know the "proper" way to define such helper classes? You can't really call

@@ -115,6 +115,9 @@ class Interaction:
     def parse_cmd(self, s):
         s = s.lstrip()
 
+        if s == '' or s.startswith('#'):
+            return
+
         if s.startswith("?"):
             self.cmd_help('')
             return
@@ -180,6 +183,8 @@ class Interaction:
         print('\t• :s NAME [=] λ-TERM — adds λ-TERM under name NAME to the evaluation environment. NAME must be a valid variable name')
         print('\t• :f NAME — removes all λ-terms with name NAME from the evaluation environment')
         print('\t• :l — prints the evaluation environment')
+        print('\t• :o FILENAME — reads and evaluates all lines from the file named FILENAME')
+        print('\t• # text... — comment until the end of the line')
         print()
         print('The supported syntax of the λ-calculus term is this EBNF grammar:')
         print('\tTERM  ::=  LAM | APP')

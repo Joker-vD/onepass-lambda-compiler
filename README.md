@@ -3,7 +3,7 @@ Turning λ into C in one pass!
 
 # Configuration
 
-This application requires installed C compile. Please edit function `get_cc_invocation()` inside `main.py` file if it can't find the C compiler on your system out of the box (it most likely won't unless your system is Linux with gcc).
+This application requires installed C compiler. Please edit function `get_cc_invocation()` inside `main.py` file if it can't find the C compiler on your system out of the box (it most likely won't unless your system is Linux with gcc).
 
 # Usage
 
@@ -14,6 +14,8 @@ Enter a λ-calculus term to evaluate or a special command. Special commands are:
 * `:s NAME [=] λ-TERM` — adds λ-TERM to the evaluation environment under name NAME. NAME must be a valid variable name
 * `:f NAME` — removes all λ-terms with name NAME from the evaluation environment
 * `:l` — prints the evaluation environment
+* `:o FILENAME` — reads and evaluates all lines from the file named FILENAME
+* `# text...` — comment until the end of the line
 
 The supported syntax of the λ-calculus term is this EBNF grammar:
 
