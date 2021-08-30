@@ -64,8 +64,8 @@
 
 byte_add byte_127 byte_2
 
-:s fib' = \fib'. \n.\i. \prev.\curr. (byte_eq n i) (\_. curr) (\_. fib' fib' n (byte_add i byte_1) curr (byte_add prev curr)) (\u.u) # (\u.u/)
-:s fib  = \n. (byte_iszero n) (\_. byte_0) (\_. fib' fib' n byte_1 byte_0 byte_1) (\u.u)
+:s fib' = λfib'. λn.λi. λprev.λcurr. (byte_eq n i) (λ_. curr) (λ_. fib' fib' n (byte_add i byte_1) curr (byte_add prev curr)) (λu.u) # (λu.uʎ)... (λO_Oʎ)!
+:s fib  = λn. (byte_iszero n) (λ_. byte_0) (λ_. fib' fib' n byte_1 byte_0 byte_1) (λu.u)
 
 # Should evaluate to 21 i.e. 0b00010101
 fib byte_8
