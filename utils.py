@@ -3,8 +3,13 @@ def put_file_contents(filename, data):
     with open(filename, 'wb') as f:
         f.write(data.encode())
 
-def chop(s):
-    chunks = s.split(maxsplit=1)
+# Hey, here's the second one
+def get_file_contents(filename):
+    with open(filename, 'r', encoding='utf-8') as f:
+        return f.read()
+
+def chop(s, sep=None):
+    chunks = s.split(sep=sep, maxsplit=1)
     if len(chunks) == 0:
         return '', ''
     elif len(chunks) == 1:

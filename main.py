@@ -2,7 +2,7 @@
 
 import os
 
-from utils import put_file_contents, chop
+from utils import put_file_contents, get_file_contents, chop
 from olc_ast import lam, app, lam2str
 from olc_parser import is_var, parse
 from translator import translate
@@ -83,16 +83,17 @@ class Interaction:
     def __init__(self):
         self.should_quit = False
         self.defs = []
+        self.input_buffer = ''
 
     def interact(self):
         import sys
 
         while not self.should_quit:
             try:
-                s = input('> ')
+                s = self.input('> ')
                 self.parse_cmd(s)
             except EOFError:
-                self.cmd_quit()
+                self.cmd_quit('')
             except Exception as e:
                 print(f'Failed: {e}', file=sys.stderr)
 
@@ -116,12 +117,14 @@ class Interaction:
                 self.cmd_list_macros(s)
             elif cmd == 'f':
                 self.cmd_forget_macro(s)
+            elif cmd == 'o':
+                self.cmd_execute_file(s)
             elif cmd == 'h':
                 self.cmd_help(s)
             else:
                 raise Exception(f'Unknown command: {cmd}. Try ":h" for help')
         else:
-            self.cmd_eval_and_print_term(parse(s))
+            self.cmd_eval_and_print_term(parse(s, self.input))
 
     def cmd_eval_and_print_term(self, term):
         print(lam2str(term))
@@ -136,7 +139,7 @@ class Interaction:
             raise Exception(f'Invalid name: {name}')
         if s.startswith('='):
             s = s[1:]
-        self.defs.append((name, parse(s)))
+        self.defs.append((name, parse(s, self.input)))
 
     def cmd_list_macros(self, s):
         for name, term in self.defs:
@@ -147,6 +150,13 @@ class Interaction:
         for i in reversed(range(0, len(self.defs))):
             if self.defs[i][0] == name:
                 self.defs[i:] = self.defs[i+1:]
+
+    def cmd_execute_file(self, s):
+        filename = s
+        data = get_file_contents(filename)
+        self.input_buffer += data
+        if not data.endswith('\n'):
+            self.input_buffer += '\n'
 
     def cmd_help(self, s):
         print('One-pass λ compiler')
@@ -188,6 +198,20 @@ class Interaction:
         result = term
         for name, term in reversed(self.defs):
             result = app(lam(name, result), term)
+        return result
+
+    def input(self, prompt):
+        if not self.input_buffer:
+            return input(prompt)
+
+        nl_offset = self.input_buffer.find('\n')
+        if nl_offset == -1:
+            result = self.input_buffer
+            self.input_buffer = ''
+            return result
+
+        result = self.input_buffer[:nl_offset]
+        self.input_buffer = self.input_buffer[nl_offset+1:]
         return result
 
 def interactive_run():

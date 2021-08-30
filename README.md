@@ -14,7 +14,7 @@ Enter a λ-calculus term to evaluate or a special command. Special commands are:
 The supported syntax of the λ-calculus term is this EBNF grammar:
 
     TERM  ::=  LAM | APP
-    LAM   ::=  ('λ' | '\') VAR ('.' | ':') APP
+    LAM   ::=  ('λ' | '\') VAR ('.' | ':') TERM
     APP   ::=  ATOM { ATOM }
     ATOM  ::=  VAR | '(' TERM ')'
     VAR    ~   [a-z_][a-z_A-Z0-9']*

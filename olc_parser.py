@@ -14,8 +14,9 @@ def is_var(token):
     return token and is_var_start(token[0])
 
 class Tokenizer:
-    def __init__(self, s):
+    def __init__(self, s, prompter):
         self.s = s
+        self.prompter = prompter
         self.len = len(s)
         self.prev_pos = 0
         self.pos = 0
@@ -32,7 +33,7 @@ class Tokenizer:
 
         if self.pos == self.len:
             if continue_line:
-                self.s = input('. ')
+                self.s = self.prompter('. ')
                 self.len = len(self.s)
                 self.prev_pos = 0
                 self.pos = 0
@@ -62,8 +63,8 @@ class Tokenizer:
 # to and from parse_xxx() functions.
 
 class Parser:
-    def __init__(self, init_chunk):
-        self.tokenizer = Tokenizer(init_chunk)
+    def __init__(self, init_chunk, prompter):
+        self.tokenizer = Tokenizer(init_chunk, prompter)
         self.parens = 0
 
     def parse(self):
@@ -122,5 +123,5 @@ class Parser:
         return self.tokenizer.next(self.parens != 0)
 
 
-def parse(init_chunk):
-    return Parser(init_chunk).parse()
+def parse(init_chunk, prompter):
+    return Parser(init_chunk, prompter).parse()
