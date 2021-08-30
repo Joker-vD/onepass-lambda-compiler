@@ -44,4 +44,6 @@ which should result in `λ_. λs. λz. z`.
 
 # Examples
 
-File `std.lam` contains some example λ-terms: Church bools and pairs and, in an unexpected twist, not *Church* numbers but unsigned 8-bit-wide binary numbers instead. Only testing for zero, equality comparison, and addition — implemented with classical ripple-carry approach — are provided for those, the rest of the arithmetics is left as an exercise for the user.
+File `std.lam` contains some example λ-terms: Church bools and pairs and, in an unexpected twist, not *Church* numbers but unsigned 8-bit-wide binary numbers instead. Only zero testing, equality comparison, and addition — implemented with classical ripple-carry approach — are provided for those, the rest of the arithmetics is left as an exercise for the user.
+
+Fibonacci series is provided as an example of a recursive function. Instead of using a Y combinator (which I still maintain to be a device of dubious practical value), it was written using what essentially is closure conversion plus escaping/known function splitting.
