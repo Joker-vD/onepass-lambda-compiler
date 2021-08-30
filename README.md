@@ -41,3 +41,7 @@ will evaluate the term
     (λconst. (λzero. (λone. one const zero) (λs. λz. s z)) (λs. λz. z)) (λk. λ_. k)
 
 which should result in `λ_. λs. λz. z`.
+
+# Examples
+
+File `std.lam` contains some example λ-terms: Church bools and pairs and, in an unexpected twist, not *Church* numbers but unsigned 8-bit-wide binary numbers instead. Only testing for zero, equality comparison, and addition — implemented with classical ripple-carry approach — are provided for those, the rest of the arithmetics is left as an exercise for the user.

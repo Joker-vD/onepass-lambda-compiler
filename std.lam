@@ -1,0 +1,63 @@
+:s true  = λt.λf. t
+:s false = λt.λf. f
+
+:s not = λb. b false true
+:s and = λb1. λb2. b1 b2 false
+:s  or = λb1. λb2. b1 true b2
+:s xor = λb1. λb2. b1 (not b2) b2
+
+
+:s pair = λfst.λsnd. λp. p fst snd
+:s fst = λp. p true
+:s snd = λp. p false
+
+
+:s byte = λb7.λb6.λb5.λb4.λb3.λb2.λb1.λb0. λf. f b7 b6 b5 b4 b3 b2 b1 b0
+
+:s byte_0   = byte false false false false false false false false
+:s byte_1   = byte false false false false false false false  true
+:s byte_2   = byte false false false false false false  true false
+:s byte_3   = byte false false false false false false  true  true
+:s byte_127 = byte false  true  true  true  true  true  true  true
+:s byte_128 = byte  true false false false false false false false
+:s byte_255 = byte  true  true  true  true  true  true  true  true
+
+# Suggestions for more efficient implementations are welcome
+
+:s byte_iszero = λbyte. byte (λb7.λb6.λb5.λb4.λb3.λb2.λb1.λb0.
+    not (or (or (or b7 b6) (or b5 b4)) (or (or b3 b2) (or b1 b0))))
+
+:s byte_eq = (λbyte1. λbyte2. byte2 (byte1 (
+    λa7.λa6.λa5.λa4.λa3.λa2.λa1.λa0.
+    λb7.λb6.λb5.λb4.λb3.λb2.λb1.λb0.
+        not (or (or (or (xor a7 b7) (xor a6 b6)) (or (xor a5 b5) (xor a4 b4)))
+                (or (or (xor a3 b3) (xor a2 b2)) (or (xor a1 b1) (xor a0 b0)))))))
+
+:s half_adder_cps = λa.λb. λk. k (xor a b) (and a b)
+
+:s full_adder_cps = λa.λb.λcin. λk. (
+    half_adder_cps a b (λhalf_s.λhalf_cout.
+    half_adder_cps half_s cin (λs.λhalf_out'.
+    k s (or half_cout half_out')
+)))
+
+:s byte_adc = λbyte1. λbyte2. byte2 (byte1 (
+    λa7.λa6.λa5.λa4.λa3.λa2.λa1.λa0.
+        λb7.λb6.λb5.λb4.λb3.λb2.λb1.λb0.
+            half_adder_cps a0 b0 (λs0.λc0.
+            full_adder_cps a1 b1 c0 (λs1.λc1.
+            full_adder_cps a2 b2 c1 (λs2.λc2.
+            full_adder_cps a3 b3 c2 (λs3.λc3.
+            full_adder_cps a4 b4 c3 (λs4.λc4.
+            full_adder_cps a5 b5 c4 (λs5.λc5.
+            full_adder_cps a6 b6 c5 (λs6.λc6.
+            full_adder_cps a7 b7 c6 (λs7.λc7.
+            pair (byte s7 s6 s5 s4 s3 s2 s1 s0) c7
+))))))))))
+:s byte_add = λbyte1. λbyte2. fst (byte_adc byte1 byte2)
+
+
+# Visual inspection :) confirms that the result is 0b10000001 i.e. 129. And it
+# even takes less than 10 KiB (even if by only 8 bytes) to add two bytes together!
+
+byte_add byte_127 byte_2
