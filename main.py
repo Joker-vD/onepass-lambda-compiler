@@ -101,6 +101,8 @@ class Interaction:
     def interact(self):
         import sys
 
+        print('One-pass λ-to-C compiler. Try ":h" for help')
+
         while not self.should_quit:
             try:
                 s = self.input('> ')
@@ -192,8 +194,6 @@ class Interaction:
             self.input_buffer += '\n'
 
     def cmd_help(self, s):
-        print('One-pass λ compiler')
-        print()
         print('Enter a λ-calculus term to evaluate, or a special command. Special commands are:')
         print('\t• :h — prints this help message')
         print('\t• :q — quits the program')
@@ -203,7 +203,6 @@ class Interaction:
         print('\t• :ff — removes all λ-terms from the evaluation environment')
         print('\t• :l — prints the evaluation environment')
         print('\t• :o FILENAME — reads and evaluates all lines from the file named FILENAME')
-        print('\t• # text... — comment until the end of the line')
         print()
         print('The supported syntax of the λ-calculus term is this EBNF grammar:')
         print('\tTERM  ::=  LAM | APP')

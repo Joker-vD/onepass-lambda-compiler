@@ -60,6 +60,12 @@ File `std.lam` contains some example λ-terms: Church bools and pairs and, in an
 
 Fibonacci series is provided as an example of a recursive function. Instead of using a Y combinator (which I still maintain to be a device of dubious practical value), it was written using what essentially is closure conversion plus escaping/known function splitting.
 
+## Why though
+
+Two weeks ago I made a throwaway comment on HN: "translating between closely related languages is often like this: the mapping between their constructs is 1-to-1 and almost trivial. But try translating e.g. λ-calculus into C in one go, without separate lambda-lifting/closure-converting steps: it's absolutely doable but quite messy".
+
+But how messy *exactly* is this? Turns out, the answer is "actually, not even that messy". I believe it's mainly because untyped, pure λ-calculus is a very tiny language.
+
 ## Futher notes
 
 See `NOTES.md` and comments in the code for explanation and description of some implementation choices. The code was structured in the most straightforward way (this is subjective, of course) which means it defines way fewer classes than one would normally expect. There isn't even a class for a symbol table because there is not much to store in one of those!
