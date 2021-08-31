@@ -24,7 +24,7 @@ def get_cc_invocation(c_filename):
         ])
         use_shell = True
     else:
-        cmd = ['gcc', '-o', exe_filename, c_filename]
+        cmd = ['gcc', '/O3', '-o', exe_filename, c_filename]
         use_shell = False
 
     return cmd, use_shell, obj_filename, exe_filename

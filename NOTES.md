@@ -89,6 +89,15 @@ Notice how we *don't* pre-calculate the free variables: we instead record and as
 
 Generating code for printing the closure values as λ-terms with captured substituted in is similar in spirit to the `lam2str()` function. Interestingly enough, we don't need to α-convert anything because of the call-to-value semantics: the captured variables reference the closures which are, well, closed. For example, value `λx. x y z + {y: λx. x + {}, z: λk. k x + {x: λx. x + {}}` should be printed as `λx. x (λx. x) (λk. k (λx. x))`. It's somewhat confusing but still correct and unambiguous for a careful enough reader. Of course, we could also have just mangled names, e.g. uniformly turning `x` into `x@lambda_11`, or carefully tracking the bound variables and appending numbers or primes, but eh.
 
+Since modern optimizing C compilers have the "function deduplication" optimization, the result of evaluating `(λx. x) (λy. y)` may be printed either as `(λx. x)` or as `(λy. y)`: the generated functions `lambda_0` and `lambda_1` have identical machine code, so the optimizer throws one of them away and uses the other one everywhere. This among other things means that e.g. all 2-element unions (`Bool = True | False`, `SwitchState = Off | On`, etc.) when encoded with Scott–Mogensen encoding will be indistinguishable at run time. A more extreme example is that functions
+
+    Value f(Value a) { return a; }
+    Value g(Value a, Value b, Value c) { return a; }
+
+may actually have the same address. That makes m- and n-tuples *sometimes* distinguishable at run time, and *sometimes* not.
+
+I am writing all this so that if another poor soul for some reason would decide to implement a toy functional language with Scott–Mogensen encoding used for data representation, they would not spend several hours trying to figure out whether the GC corrupts the heap, or the debugging print somehow miscompares function pointers, or they have just gone insane (after all, they've actually decided to use Scott–Mogensen encoding, so...). No, it's just your C compiler waltzing with UB: the standard severely under-restricts how the function pointers behave.
+
 ### Parsing lambdas
 
 It's recursive descent, but with support for line continuations inside the lexer! Nothing special, although can be tricky to debug: I'm particularly prone to accidentally writing infinite loops in such parsers for some reason.
