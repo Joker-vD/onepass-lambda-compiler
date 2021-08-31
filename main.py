@@ -24,7 +24,7 @@ def get_cc_invocation(c_filename):
         ])
         use_shell = True
     else:
-        cmd = ['gcc', '/O3', '-o', exe_filename, c_filename]
+        cmd = ['gcc', '-O3', '-o', exe_filename, c_filename]
         use_shell = False
 
     return cmd, use_shell, obj_filename, exe_filename
@@ -129,10 +129,14 @@ class Interaction:
                 self.cmd_quit(s)
             elif cmd == 's':
                 self.cmd_set_macro(s)
+            elif cmd == 'es':
+                self.cmd_eval_and_set_macro(s)
             elif cmd == 'l':
                 self.cmd_list_macros(s)
             elif cmd == 'f':
                 self.cmd_forget_macro(s)
+            elif cmd == 'ff':
+                self.cmd_forget_all_macros(s)
             elif cmd == 'o':
                 self.cmd_execute_file(s)
             elif cmd == 'h':
@@ -157,6 +161,16 @@ class Interaction:
             s = s[1:]
         self.defs.append((name, parse(s, self.input)))
 
+    def cmd_eval_and_set_macro(self, s):
+        name, s = chop(s)
+        if not is_var(name):
+            raise Exception(f'invalid name: {name}')
+        if s.startswith('='):
+            s = s[1:]
+        eval_result = self.eval_term(parse(s, self.input))
+        print(eval_result)
+        self.defs.append((name, parse(eval_result, self.no_input)))
+
     def cmd_list_macros(self, s):
         for name, term in self.defs:
             print(f'{name} = {lam2str(term)}')
@@ -166,6 +180,9 @@ class Interaction:
         for i in reversed(range(0, len(self.defs))):
             if self.defs[i][0] == name:
                 self.defs[i:] = self.defs[i+1:]
+
+    def cmd_forget_all_macros(self, s):
+        self.defs.clear()
 
     def cmd_execute_file(self, s):
         filename = s
@@ -181,7 +198,9 @@ class Interaction:
         print('\t• :h — prints this help message')
         print('\t• :q — quits the program')
         print('\t• :s NAME [=] λ-TERM — adds λ-TERM under name NAME to the evaluation environment. NAME must be a valid variable name')
+        print('\t• :es NAME [=] λ-TERM — evaluates λ-TERM and add the result to the evaluation environment under name NAME. NAME must be a valid variable name')
         print('\t• :f NAME — removes all λ-terms with name NAME from the evaluation environment')
+        print('\t• :ff — removes all λ-terms from the evaluation environment')
         print('\t• :l — prints the evaluation environment')
         print('\t• :o FILENAME — reads and evaluates all lines from the file named FILENAME')
         print('\t• # text... — comment until the end of the line')
@@ -231,6 +250,9 @@ class Interaction:
         result = self.input_buffer[:nl_offset]
         self.input_buffer = self.input_buffer[nl_offset+1:]
         return result
+
+    def no_input(self, prompt):
+        return ''
 
 def interactive_run():
     try:

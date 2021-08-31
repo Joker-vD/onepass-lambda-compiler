@@ -23,7 +23,7 @@ class Tokenizer:
         self.ws = 0
 
     def skip_ws(self):
-        while self.pos < self.len and self.s[self.pos] in '\t\r\x20\v\f':
+        while self.pos < self.len and self.s[self.pos] in '\t\r\n\x20\v\f':
             self.ws += 1
             self.pos += 1
 

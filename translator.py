@@ -89,7 +89,7 @@ int main(int argc, char **argv) {
         self.append(r'''fprintf(stderr, "unknown function pointer: ");
     unsigned char *funptr = (unsigned char *)&v.fun;
     for (size_t i = 0; i < sizeof(Lambda); i++) {
-        printf("%02x", funptr[i]);
+        fprintf(stderr, "%02x", funptr[i]);
     }
     fprintf(stderr, "\n");
     exit(1);''')

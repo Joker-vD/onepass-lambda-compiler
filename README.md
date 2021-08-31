@@ -15,7 +15,9 @@ Enter a λ-calculus term to evaluate, or a special command. Special commands are
 * `:h` — prints this help message
 * `:q` — quits the program
 * `:s NAME [=] λ-TERM` — adds λ-TERM to the evaluation environment under name NAME. NAME must be a valid variable name
+* `:es NAME [=] λ-TERM` — evaluates λ-TERM and add the result to the evaluation environment under name NAME. NAME must be a valid variable name
 * `:f NAME` — removes all λ-terms with name NAME from the evaluation environment
+* `:ff` — removes all λ-terms from the evaluation environment
 * `:l` — prints the evaluation environment
 * `:o FILENAME` — reads and evaluates all lines from the file named FILENAME
 
