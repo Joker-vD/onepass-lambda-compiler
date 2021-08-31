@@ -177,7 +177,7 @@ class Interaction:
     def cmd_help(self, s):
         print('One-pass λ compiler')
         print()
-        print('Enter a λ-calculus term to evaluate or a special command. Special commands are:')
+        print('Enter a λ-calculus term to evaluate, or a special command. Special commands are:')
         print('\t• :h — prints this help message')
         print('\t• :q — quits the program')
         print('\t• :s NAME [=] λ-TERM — adds λ-TERM under name NAME to the evaluation environment. NAME must be a valid variable name')
@@ -193,12 +193,12 @@ class Interaction:
         print('\tATOM  ::=  VAR | \'(\' TERM \')\'')
         print('\tVAR    ~   [a-z_][a-z_A-Z0-9\']*')
         print()
-        print('Input of multiline terms is supported: pressing [ENTER ⏎] while there are unbalanced open parentheses makes the program'
-            ' to expect the continuation of the input on the next line(s). Continuation lines are marked by "." prompt instead of the normal'
-            ' ">" prompt. Pressing [ENTER ⏎] on the continuation line without any non-whitespace input immediately aborts input.')
+        print('Comments are started by "#" symbol and extend until the end of the line. Input of multiline terms is supported:'
+            ' pressing [ENTER ⏎] while there are unbalanced open parentheses makes the program expect the continuation of the input'
+            ' on the next line(s). Continuation lines are marked by "." prompt instead of the normal ">" prompt.')
         print()
-        print('Evaluation model is call-by-value. Before evaluating the input term, it is merged with the evaluation environment and the'
-            ' resulting term is evaluated instead. This merge is done using the usual let=>λ conversion, i.e., let x = e1 in e2 => (λx. e2) e1.'
+        print('Evaluation model is call-by-value. Before the input term is evaluated, it is merged with the evaluation environment and the'
+            ' resulting term is evaluated instead. This merge is done using the usual let=>λ conversion, i.e., let x = e1 in e2  =>  (λx. e2) e1.'
             ' For example, the following sequence of commands:')
         print('\t:s const = λk. λ_. k')
         print('\t:s zero = λs. λz. z')

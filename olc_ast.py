@@ -1,6 +1,6 @@
 # Not much of AST, really. Variables are represented just as strings, λ-abstractions and
 # applications as 3-tuples with the first element being a string discriminant. That's mighty
-# enough for the languahe as simple as λ-calculus
+# enough for the language as simple as λ-calculus
 
 def lam(param, body):
     return ('LAM', param, body)
