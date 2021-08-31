@@ -276,9 +276,11 @@ def mangle_for_c(name):
     result = ''
     for ch in name:
         if ch == '_':
-            result += '_x5F'
+            result += 'x5F'
         elif ch == '\'':
-            result += '_x27'
+            result += 'x27'
+        elif ch == 'x':
+            result += 'x78'
         else:
             result += ch
     return result
