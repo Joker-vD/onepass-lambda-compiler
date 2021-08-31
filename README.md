@@ -1,12 +1,20 @@
-# One-pass λ compiler
+# One-pass λ-to-C compiler
 
 It turns λ-terms into C programs **in just one pass**! Well, there is still some output buffering, but that's inevitable: during the translation of e.g. `(λx. x (λy. y) (λz. z) x)`, translation of `λy. y` starts before translation of `λx. ...` is completed, and C doesn't support nested functions, so one of those has to be done in a side buffer.
 
 But other than that, it *is* a one-pass compiler: a λ-term is traversed exactly once and the C code is emitted immediately during this traversal; no intermediate representations are built, closure-conversion and lambda-hoisting are dealt with on the fly.
 
+## Installation
+
+Requires at least Python 3.6.5 and a C compiler.
+
+    git clone https://github.com/Joker-vD/onepass-lambda-compiler.git
+    cd onepass-lambda-compiler
+    ./main.py
+
 ## Configuration
 
-This application requires an installed C compiler. Please edit function `get_cc_invocation()` inside `main.py` file if it can't find the C compiler on your system out of the box (it most likely won't unless your system is Linux with gcc).
+This application requires an installed C compiler, to compile produced C files. Please edit function `get_cc_invocation()` inside `main.py` file if it can't find the C compiler on your system out of the box (it most likely won't unless your system is Linux with gcc).
 
 ## Usage
 
